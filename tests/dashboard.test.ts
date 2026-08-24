@@ -2,6 +2,11 @@ import { describe, it, expect } from 'vitest';
 import { renderFleetDashboard } from '../src/lib/dashboard.js';
 import { RepoFleetStatus } from '../src/lib/fleet-query.js';
 
+function stripAnsi(str: string): string {
+  // eslint-disable-next-line no-control-regex
+  return str.replace(/\u001b\[\d+m/g, '');
+}
+
 describe('Fleet Dashboard Renderer', () => {
   const sampleStatuses: RepoFleetStatus[] = [
     {
@@ -65,7 +70,8 @@ describe('Fleet Dashboard Renderer', () => {
   ];
 
   it('renders terminal dashboard text with repository sections and summary', () => {
-    const output = renderFleetDashboard(sampleStatuses, { json: false });
+    const rawOutput = renderFleetDashboard(sampleStatuses, { json: false });
+    const output = stripAnsi(rawOutput);
 
     expect(output).toContain('Jonah Fleet Multi-Repo Monitor');
     expect(output).toContain('juliendurandeu/jonah-fleet');

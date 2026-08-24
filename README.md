@@ -4,7 +4,7 @@
 > Battle-tested autonomous coding agents, claim protocols, review loops, and engineering skills for multi-repo teams.
 
 [![CI](https://github.com/juliendurandeu/jonah-fleet/actions/workflows/ci.yml/badge.svg)](https://github.com/juliendurandeu/jonah-fleet/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](./package.json)
+[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](./package.json)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ---
@@ -16,6 +16,7 @@
 - **Symphony-aligned Orchestration**: Single-flight locking, stale-claim recovery, and reader/writer separation.
 - **Autonomous Autowork**: Issue claiming, test-driven implementation (`/tdd`), automated draft PR creation, and warm-session review synchronization.
 - **Strict Peer Review**: Multi-angle subagent code reviews (`/code-review`), security scanning, and automated squash-merge.
+- **Configurable Models & Budgets**: Per-routine model and reasoning effort profiles (e.g. `gemini-3.7-flash-high`, `gemini-3.7-flash`), iteration caps, and timeout controls in `agents-manifest.json`.
 - **Issues Housekeeping & Dependency Security**: Weekly automated sweeps for duplicate detection, triage label assignment, and vulnerability remediation.
 - **Continuous Bi-Directional Improvement Bridge**: When local `optimizer.md` routines discover generic prompt optimizations, fixes can be submitted directly back upstream to `jonah-fleet` and distributed to all projects.
 
@@ -110,7 +111,7 @@ Each target project contains an `agents-manifest.json` at its root:
 ```json
 {
   "$schema": "https://raw.githubusercontent.com/juliendurandeu/jonah-fleet/main/schema.json",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "preset": "standard",
   "routines": {
     "autowork": true,
@@ -130,6 +131,28 @@ Each target project contains an `agents-manifest.json` at its root:
     "writing-for-agents",
     "triage"
   ],
+  "models": {
+    "default": "gemini-3.7-flash-high",
+    "issues-housekeeping": "gemini-3.7-flash",
+    "dependency-update-security-check": "gemini-3.7-flash"
+  },
+  "budgets": {
+    "weeklyTokens": 8750000,
+    "timeoutMinutes": {
+      "autowork": 60,
+      "peer-review": 55,
+      "optimizer": 35,
+      "issues-housekeeping": 40,
+      "dependency-update-security-check": 25
+    },
+    "maxIterations": {
+      "autowork": 65,
+      "peer-review": 40,
+      "optimizer": 30,
+      "issues-housekeeping": 30,
+      "dependency-update-security-check": 20
+    }
+  },
   "autoUpdate": {
     "enabled": true,
     "channel": "stable"

@@ -110,6 +110,46 @@ jobs:
           printf '%s' "$ANTIGRAVITY_OAUTH_TOKEN" > "$HOME/.gemini/antigravity-cli/antigravity-oauth-token"
           chmod 600 "$HOME/.gemini/antigravity-cli/antigravity-oauth-token"
 
+      - name: Resolve routine configuration
+        if: steps.guard.outputs.skip != 'true'
+        id: routine-config
+        run: |
+          ROUTINE="peer-review"
+          DEFAULT_MODEL="gemini-3.7-flash-high"
+          DEFAULT_TIMEOUT="55"
+
+          MODEL="$DEFAULT_MODEL"
+          TIMEOUT="$DEFAULT_TIMEOUT"
+
+          if [ -f "agents-manifest.json" ]; then
+            CONFIG_JSON=$(node -e '
+              try {
+                const fs = require("fs");
+                const m = JSON.parse(fs.readFileSync("agents-manifest.json", "utf8"));
+                const r = process.argv[1];
+                const model = m.models?.[r] || m.models?.default;
+                const timeout = m.budgets?.timeoutMinutes?.[r] || m.budgets?.timeoutMinutes?.default;
+                console.log(JSON.stringify({ model: model || "", timeout: timeout ? String(timeout) : "" }));
+              } catch (e) {
+                console.log(JSON.stringify({ model: "", timeout: "" }));
+              }
+            ' "$ROUTINE")
+
+            RESOLVED_MODEL=$(node -e "try { console.log(JSON.parse(process.argv[1]).model || ''); } catch {}" "$CONFIG_JSON")
+            RESOLVED_TIMEOUT=$(node -e "try { console.log(JSON.parse(process.argv[1]).timeout || ''); } catch {}" "$CONFIG_JSON")
+
+            if [ -n "$RESOLVED_MODEL" ]; then
+              MODEL="$RESOLVED_MODEL"
+            fi
+            if [ -n "$RESOLVED_TIMEOUT" ]; then
+              TIMEOUT="$RESOLVED_TIMEOUT"
+            fi
+          fi
+
+          echo "model=$MODEL" >> "$GITHUB_OUTPUT"
+          echo "print_timeout=${TIMEOUT}m" >> "$GITHUB_OUTPUT"
+          echo "Resolved routine configuration: model=$MODEL, timeout=${TIMEOUT}m"
+
       - name: Run Peer Review
         if: steps.guard.outputs.skip != 'true'
         timeout-minutes: 55
@@ -127,9 +167,9 @@ jobs:
           PROMPT="You are the Peer Review routine for this repository. Read and follow the instructions in .github/prompts/peer-review.md exactly. Your target is pull request #${PR_NUMBER} (${PR_URL}). You are in Targeted mode: review PR #${PR_NUMBER} directly."
 
           agy -p "$PROMPT" \
-            --model gemini-3.7-flash-high \
+            --model "${{ steps.routine-config.outputs.model || 'gemini-3.7-flash-high' }}" \
             --output-format text \
-            --print-timeout 55m \
+            --print-timeout "${{ steps.routine-config.outputs.print_timeout || '55m' }}" \
             --dangerously-skip-permissions
 
       - name: Emit run summary

@@ -49,6 +49,8 @@ export async function runStatus(options: StatusOptions = {}): Promise<void> {
           autoUpdate: manifest.autoUpdate,
           routines: manifest.routines,
           skills: manifest.skills,
+          models: manifest.models || {},
+          budgets: manifest.budgets || {},
           repositories: manifest.repositories || [],
           drift: {
             hasDrift,
@@ -75,6 +77,36 @@ export async function runStatus(options: StatusOptions = {}): Promise<void> {
   console.log(pc.bold('\n  Configured Skills:'));
   for (const skill of manifest.skills) {
     console.log(`    - ${pc.cyan(skill)}`);
+  }
+
+  if (manifest.models && Object.keys(manifest.models).length > 0) {
+    console.log(pc.bold('\n  Model Profiles:'));
+    if (manifest.models.default) {
+      console.log(`    - ${'default'.padEnd(35)}: ${pc.green(manifest.models.default)}`);
+    }
+    for (const [key, model] of Object.entries(manifest.models)) {
+      if (key === 'default' || !model) continue;
+      console.log(`    - ${key.padEnd(35)}: ${pc.cyan(model)}`);
+    }
+  }
+
+  if (manifest.budgets) {
+    console.log(pc.bold('\n  Budget & Resource Constraints:'));
+    if (manifest.budgets.weeklyTokens) {
+      console.log(`    - Weekly Token Budget: ${pc.green(manifest.budgets.weeklyTokens.toLocaleString())} tokens`);
+    }
+    if (manifest.budgets.timeoutMinutes && Object.keys(manifest.budgets.timeoutMinutes).length > 0) {
+      const timeouts = Object.entries(manifest.budgets.timeoutMinutes)
+        .map(([r, t]) => `${r}: ${t}m`)
+        .join(', ');
+      console.log(`    - Timeouts:            ${pc.cyan(timeouts)}`);
+    }
+    if (manifest.budgets.maxIterations && Object.keys(manifest.budgets.maxIterations).length > 0) {
+      const iters = Object.entries(manifest.budgets.maxIterations)
+        .map(([r, i]) => `${r}: ${i}`)
+        .join(', ');
+      console.log(`    - Max Iterations:      ${pc.cyan(iters)}`);
+    }
   }
 
   if (manifest.repositories && manifest.repositories.length > 0) {

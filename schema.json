@@ -35,6 +35,59 @@
       "items": { "type": "string" },
       "description": "List of core engineering skills to install/sync"
     },
+    "models": {
+      "type": "object",
+      "properties": {
+        "default": { "type": "string", "description": "Default fallback model for all routines" },
+        "autowork": { "type": "string", "description": "Model identifier for Autowork (e.g. gemini-3.7-flash-high)" },
+        "peer-review": { "type": "string", "description": "Model identifier for Peer Review (e.g. gemini-3.7-flash-high)" },
+        "optimizer": { "type": "string", "description": "Model identifier for Prompt Optimizer (e.g. gemini-3.7-flash-high)" },
+        "issues-housekeeping": { "type": "string", "description": "Model identifier for Issues Housekeeping (e.g. gemini-3.7-flash)" },
+        "dependency-update-security-check": { "type": "string", "description": "Model identifier for Dependency Update Check (e.g. gemini-3.7-flash)" },
+        "product-planning": { "type": "string", "description": "Model identifier for Product Planning (e.g. gemini-3.7-flash-high)" }
+      },
+      "additionalProperties": false,
+      "description": "Per-routine model and reasoning effort profiles"
+    },
+    "budgets": {
+      "type": "object",
+      "properties": {
+        "weeklyTokens": {
+          "type": "number",
+          "description": "Weekly token budget limit across all routines in the fleet"
+        },
+        "maxIterations": {
+          "type": "object",
+          "properties": {
+            "default": { "type": "number" },
+            "autowork": { "type": "number" },
+            "peer-review": { "type": "number" },
+            "optimizer": { "type": "number" },
+            "issues-housekeeping": { "type": "number" },
+            "dependency-update-security-check": { "type": "number" },
+            "product-planning": { "type": "number" }
+          },
+          "additionalProperties": false,
+          "description": "Maximum tool call iterations per routine run"
+        },
+        "timeoutMinutes": {
+          "type": "object",
+          "properties": {
+            "default": { "type": "number" },
+            "autowork": { "type": "number" },
+            "peer-review": { "type": "number" },
+            "optimizer": { "type": "number" },
+            "issues-housekeeping": { "type": "number" },
+            "dependency-update-security-check": { "type": "number" },
+            "product-planning": { "type": "number" }
+          },
+          "additionalProperties": false,
+          "description": "Timeout in minutes per routine run"
+        }
+      },
+      "additionalProperties": false,
+      "description": "Budget limits for token spend, iteration caps, and execution timeouts"
+    },
     "repositories": {
       "type": "array",
       "items": { "type": "string" },

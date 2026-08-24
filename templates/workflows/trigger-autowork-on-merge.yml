@@ -108,6 +108,46 @@ jobs:
           fi
           echo "skills_prompt=$SKILLS_PROMPT" >> "$GITHUB_OUTPUT"
 
+      - name: Resolve routine configuration
+        if: steps.pick.outputs.skip != 'true'
+        id: routine-config
+        run: |
+          ROUTINE="autowork"
+          DEFAULT_MODEL="gemini-3.7-flash-high"
+          DEFAULT_TIMEOUT="60"
+
+          MODEL="$DEFAULT_MODEL"
+          TIMEOUT="$DEFAULT_TIMEOUT"
+
+          if [ -f "agents-manifest.json" ]; then
+            CONFIG_JSON=$(node -e '
+              try {
+                const fs = require("fs");
+                const m = JSON.parse(fs.readFileSync("agents-manifest.json", "utf8"));
+                const r = process.argv[1];
+                const model = m.models?.[r] || m.models?.default;
+                const timeout = m.budgets?.timeoutMinutes?.[r] || m.budgets?.timeoutMinutes?.default;
+                console.log(JSON.stringify({ model: model || "", timeout: timeout ? String(timeout) : "" }));
+              } catch (e) {
+                console.log(JSON.stringify({ model: "", timeout: "" }));
+              }
+            ' "$ROUTINE")
+
+            RESOLVED_MODEL=$(node -e "try { console.log(JSON.parse(process.argv[1]).model || ''); } catch {}" "$CONFIG_JSON")
+            RESOLVED_TIMEOUT=$(node -e "try { console.log(JSON.parse(process.argv[1]).timeout || ''); } catch {}" "$CONFIG_JSON")
+
+            if [ -n "$RESOLVED_MODEL" ]; then
+              MODEL="$RESOLVED_MODEL"
+            fi
+            if [ -n "$RESOLVED_TIMEOUT" ]; then
+              TIMEOUT="$RESOLVED_TIMEOUT"
+            fi
+          fi
+
+          echo "model=$MODEL" >> "$GITHUB_OUTPUT"
+          echo "print_timeout=${TIMEOUT}m" >> "$GITHUB_OUTPUT"
+          echo "Resolved routine configuration: model=$MODEL, timeout=${TIMEOUT}m"
+
       - name: Run Autowork
         if: steps.pick.outputs.skip != 'true'
         timeout-minutes: 60
@@ -124,7 +164,7 @@ jobs:
           PROMPT="You are the Autowork routine for this repository. A PR was recently merged. Read and follow .github/prompts/autowork.md. ${SKILLS_PROMPT} You are in Scan mode: converge on open PRs, close merged issues, and pick the next unblocked priority issue."
 
           agy -p "$PROMPT" \
-            --model gemini-3.7-flash-high \
+            --model "${{ steps.routine-config.outputs.model || 'gemini-3.7-flash-high' }}" \
             --output-format text \
-            --print-timeout 60m \
+            --print-timeout "${{ steps.routine-config.outputs.print_timeout || '60m' }}" \
             --dangerously-skip-permissions

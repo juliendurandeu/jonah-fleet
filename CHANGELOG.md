@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Real-time active claim inspection and stale claim detection (> 6h with no open PR).
 - 7-day rolling token spend tracking and cost estimation from routine run logs.
 - Live watch mode (`--watch`, `--interval <sec>`) and JSON output (`--json`).
+- Model & reasoning effort profile configuration in `agents-manifest.json` (`models` block) supporting per-routine overrides (e.g. `gemini-3.7-flash-high`, `gemini-3.7-flash`).
+- Execution budget constraints in `agents-manifest.json` (`budgets` block) configuring `weeklyTokens`, per-routine `timeoutMinutes`, and `maxIterations`.
+- Dynamic workflow parameter resolution reading models and budgets directly from `agents-manifest.json` before routine execution.
+- CLI `status` enhancements displaying configured model profiles, timeouts, and iteration limits.
 
 ## [1.0.0] - 2026-08-24
 

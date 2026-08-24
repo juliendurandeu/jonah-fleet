@@ -1,5 +1,37 @@
 export type PresetName = 'minimal' | 'standard' | 'full' | 'custom';
 
+export interface RoutineModels {
+  default?: string;
+  autowork?: string;
+  'peer-review'?: string;
+  optimizer?: string;
+  'issues-housekeeping'?: string;
+  'dependency-update-security-check'?: string;
+  'product-planning'?: string;
+}
+
+export interface RoutineBudgets {
+  weeklyTokens?: number;
+  maxIterations?: {
+    default?: number;
+    autowork?: number;
+    'peer-review'?: number;
+    optimizer?: number;
+    'issues-housekeeping'?: number;
+    'dependency-update-security-check'?: number;
+    'product-planning'?: number;
+  };
+  timeoutMinutes?: {
+    default?: number;
+    autowork?: number;
+    'peer-review'?: number;
+    optimizer?: number;
+    'issues-housekeeping'?: number;
+    'dependency-update-security-check'?: number;
+    'product-planning'?: number;
+  };
+}
+
 export interface FleetManifest {
   $schema?: string;
   version: string;
@@ -13,12 +45,65 @@ export interface FleetManifest {
     'product-planning': boolean;
   };
   skills: string[];
+  models?: RoutineModels;
+  budgets?: RoutineBudgets;
   repositories?: string[];
   autoUpdate?: {
     enabled: boolean;
     channel: 'stable' | 'latest';
   };
 }
+
+export const DEFAULT_ROUTINE_MODELS: Record<string, string> = {
+  autowork: 'gemini-3.7-flash-high',
+  'peer-review': 'gemini-3.7-flash-high',
+  optimizer: 'gemini-3.7-flash-high',
+  'issues-housekeeping': 'gemini-3.7-flash',
+  'dependency-update-security-check': 'gemini-3.7-flash',
+  'product-planning': 'gemini-3.7-flash-high',
+};
+
+export const DEFAULT_ROUTINE_TIMEOUTS: Record<string, number> = {
+  autowork: 60,
+  'peer-review': 55,
+  optimizer: 35,
+  'issues-housekeeping': 40,
+  'dependency-update-security-check': 25,
+  'product-planning': 45,
+};
+
+export const DEFAULT_ROUTINE_MAX_ITERATIONS: Record<string, number> = {
+  autowork: 65,
+  'peer-review': 40,
+  optimizer: 30,
+  'issues-housekeeping': 30,
+  'dependency-update-security-check': 20,
+  'product-planning': 40,
+};
+
+export const DEFAULT_MODELS_CONFIG: RoutineModels = {
+  default: 'gemini-3.7-flash-high',
+  'issues-housekeeping': 'gemini-3.7-flash',
+  'dependency-update-security-check': 'gemini-3.7-flash',
+};
+
+export const DEFAULT_BUDGETS_CONFIG: RoutineBudgets = {
+  weeklyTokens: 8750000,
+  timeoutMinutes: {
+    autowork: 60,
+    'peer-review': 55,
+    optimizer: 35,
+    'issues-housekeeping': 40,
+    'dependency-update-security-check': 25,
+  },
+  maxIterations: {
+    autowork: 65,
+    'peer-review': 40,
+    optimizer: 30,
+    'issues-housekeeping': 30,
+    'dependency-update-security-check': 20,
+  },
+};
 
 export const PRESET_CONFIGS: Record<Exclude<PresetName, 'custom'>, { routines: FleetManifest['routines']; skills: string[] }> = {
   minimal: {

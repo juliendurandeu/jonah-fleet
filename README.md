@@ -149,4 +149,4 @@ Each target project contains an `agents-manifest.json` at its root:
 
 ## 📄 License
 
-MIT © Julien Durandeu
+MIT © Julien Durand

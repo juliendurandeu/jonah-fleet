@@ -1,0 +1,27 @@
+{
+  "$schema": "https://raw.githubusercontent.com/juliendurandeu/jonah-fleet/main/schema.json",
+  "version": "1.0.0",
+  "preset": "standard",
+  "routines": {
+    "autowork": true,
+    "peer-review": true,
+    "optimizer": true,
+    "issues-housekeeping": true,
+    "dependency-update-security-check": true,
+    "product-planning": false
+  },
+  "skills": [
+    "tdd",
+    "code-review",
+    "codebase-design",
+    "domain-modeling",
+    "diagnosing-bugs",
+    "resolving-merge-conflicts",
+    "writing-for-agents",
+    "triage"
+  ],
+  "autoUpdate": {
+    "enabled": true,
+    "channel": "stable"
+  }
+}

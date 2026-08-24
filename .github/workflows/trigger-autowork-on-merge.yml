@@ -1,0 +1,130 @@
+name: Trigger Autowork on Merge
+
+on:
+  pull_request:
+    types: [closed]
+
+concurrency:
+  group: autowork-merge-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  fire-autowork:
+    if: >-
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.base.ref == 'main' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      statuses: write
+      actions: read
+    steps:
+      - name: Compute unblocked issue
+        id: pick
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OWNER: ${{ github.repository_owner }}
+          REPO: ${{ github.event.repository.name }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          # Check changed files to skip pure log PR merges
+          files=$(gh api "repos/$OWNER/$REPO/pulls/$PR/files" --paginate --jq '.[].filename' 2>/dev/null || echo "")
+          if [ -n "$files" ]; then
+            non_log_count=$(echo "$files" | grep -v '^\.github/prompts/logs/' | wc -l)
+            if [ "$non_log_count" -eq 0 ]; then
+              echo "Log-only PR merged — skipping autowork fire."
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout repository
+        if: steps.pick.outputs.skip != 'true'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        if: steps.pick.outputs.skip != 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Configure Git author identity
+        if: steps.pick.outputs.skip != 'true'
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Cache Antigravity CLI
+        if: steps.pick.outputs.skip != 'true'
+        id: cache-agy
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/bin/agy
+          key: agy-cli-linux-amd64-v1
+
+      - name: Install Antigravity CLI
+        if: steps.pick.outputs.skip != 'true' && steps.cache-agy.outputs.cache-hit != 'true'
+        run: |
+          curl -fsSL https://antigravity.google/cli/install.sh | bash
+
+      - name: Add Antigravity CLI to PATH
+        if: steps.pick.outputs.skip != 'true'
+        run: echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Write Antigravity OAuth Token
+        if: steps.pick.outputs.skip != 'true'
+        env:
+          ANTIGRAVITY_OAUTH_TOKEN: ${{ secrets.ANTIGRAVITY_OAUTH_TOKEN || secrets.GEMINI_API_KEY }}
+        run: |
+          if [ -z "$ANTIGRAVITY_OAUTH_TOKEN" ]; then
+            echo "::error::Neither ANTIGRAVITY_OAUTH_TOKEN nor GEMINI_API_KEY secret is set; cannot authenticate Antigravity CLI." >&2
+            exit 1
+          fi
+          mkdir -p "$HOME/.gemini/antigravity-cli"
+          chmod 700 "$HOME/.gemini/antigravity-cli"
+          printf '%s' "$ANTIGRAVITY_OAUTH_TOKEN" > "$HOME/.gemini/antigravity-cli/antigravity-oauth-token"
+          chmod 600 "$HOME/.gemini/antigravity-cli/antigravity-oauth-token"
+
+      - name: Discover domain skills
+        if: steps.pick.outputs.skip != 'true'
+        id: skills
+        run: |
+          SKILLS_PROMPT=""
+          if [ -d ".agents/skills" ]; then
+            for skill_path in .agents/skills/*/SKILL.md; do
+              if [ -f "$skill_path" ]; then
+                SKILLS_PROMPT="${SKILLS_PROMPT}Read and follow ${skill_path}. "
+              fi
+            done
+          fi
+          echo "skills_prompt=$SKILLS_PROMPT" >> "$GITHUB_OUTPUT"
+
+      - name: Run Autowork
+        if: steps.pick.outputs.skip != 'true'
+        timeout-minutes: 60
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ANTIGRAVITY_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GH_TOKEN: ${{ secrets.GH_PAT || github.token }}
+          SKILLS_PROMPT: ${{ steps.skills.outputs.skills_prompt }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+        run: |
+          PROMPT="You are the Autowork routine for this repository. A PR was recently merged. Read and follow .github/prompts/autowork.md. ${SKILLS_PROMPT} You are in Scan mode: converge on open PRs, close merged issues, and pick the next unblocked priority issue."
+
+          agy -p "$PROMPT" \
+            --model gemini-3.7-flash-high \
+            --output-format text \
+            --print-timeout 60m \
+            --dangerously-skip-permissions

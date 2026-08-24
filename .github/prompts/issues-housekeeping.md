@@ -1,0 +1,55 @@
+# Issues Housekeeping
+
+## Objective
+
+Sweep all open issues for staleness, duplicates, batch-consolidation opportunities (sets of small related issues addressable together), label drift, priority accuracy, dependency status, and orphaned autowork claims, and land any accumulated draft log-only PRs. Fix what can be fixed and post a summary of changes made.
+
+## Definition of Done
+
+The run is SUCCESS only if ALL of these are true:
+
+- [ ] All open issues have been scanned
+- [ ] Priority review completed: P1s re-evaluated, quick-win promotions considered, priority rubric enforced
+- [ ] Duplicate & batch-consolidation check completed: overlapping issues closed with cross-references, small related issues consolidated
+- [ ] Stale / obsolete check completed: premise-obsolete issues closed, idle issues resolved
+- [ ] Label audit completed: every open issue has consistent type, size, and priority labels
+- [ ] Dependency check completed: issues with `## Dependencies` verified against blocker status
+- [ ] Orphaned-claim sweep completed: stale autowork claims (per `ORCHESTRATION.md`) released back to the unclaimed pool
+- [ ] Draft log-only PR sweep completed: open draft PRs whose changed files are entirely under `.github/prompts/logs/**` undrafted and squash-merged
+- [ ] Summary posted listing all changes made
+
+If any criterion cannot be met, stop immediately and log FAILURE with the reason.
+
+## Constraints
+
+- **Max iterations**: 40 — after 40 tool call rounds without completing Definition of Done, STOP. Log FAILURE with category `token_limit`.
+- **Max scope**: housekeeping only. Do not implement code fixes or open feature PRs.
+- **No speculative work**: only modify issue metadata (labels, status, comments, releasing stale assignees) and land draft log-only PRs.
+- **Language Requirement**: All GitHub issue titles, descriptions, task checklists, and comments MUST be written in **English**.
+
+## Instructions
+
+### Phase 1: Quick Recovery & Clearing
+
+1. **Draft log-only PR sweep**: Undraft and squash-merge open draft PRs whose diffs are entirely under `.github/prompts/logs/**`.
+2. **Orphaned-claim sweep**: Sweep assigned issues. If an issue meets the 3 stale-claim conditions in `ORCHESTRATION.md` (autowork claim comment, no open PR, comment > 6 hours old), re-read immediately before writing, unassign the dead owner, and post a release comment.
+
+### Phase 2: Backlog Hygiene
+
+3. **Priority review**: Check open P1/P2/P3 issues. Promote critical bugs or unblocked items; demote items that lack immediate priority.
+4. **Duplicate & consolidation check**: Identify duplicate issues; close duplicates with cross-references. Consolidate small, related micro-tasks into batch issues.
+5. **Premise-obsolete & stale check**: If an issue's premise was resolved by already-merged PRs or recent refactors, close as completed with evidence.
+6. **Label audit**: Ensure open issues carry standard role labels (`needs-triage`, `ready-for-agent`, `needs-human`, etc.). Use `/triage` if classifying incoming issues.
+
+### Phase 3: Summary
+
+7. Post a summary comment or log recording all actions taken (priority shifts, closed duplicates, released claims, landed log PRs).
+
+## Logging
+
+After completing (SUCCESS or FAILURE), write a log file to `.github/prompts/logs/issues-housekeeping/{timestamp}.md` following the schema in `.github/prompts/logs/_template.md`. Include:
+- Prompt SHA
+- Tally of issues audited, claims released, PRs merged
+- List of closed or modified issues
+
+**Important**: Commit the log file directly to `main` and push. Follow the Log delivery fallback in `ORCHESTRATION.md` if direct push fails.

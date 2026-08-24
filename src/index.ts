@@ -2,6 +2,7 @@ import { Command } from 'commander';
 import { runInit } from './commands/init.js';
 import { runSync } from './commands/sync.js';
 import { runStatus } from './commands/status.js';
+import { runMonitor } from './commands/monitor.js';
 import { runContribute } from './commands/contribute.js';
 import { FLEET_VERSION } from './lib/presets.js';
 
@@ -33,8 +34,23 @@ program
 program
   .command('status')
   .description('Check the status, health, and drift of installed agent routines and skills')
+  .option('-f, --fleet', 'Display multi-repository fleet monitor overview', false)
+  .option('-j, --json', 'Output status as JSON', false)
   .action(async (options) => {
     await runStatus(options);
+  });
+
+program
+  .command('monitor [repos...]')
+  .description('Monitor health, active claims, PR review loops, and token spend across fleet repositories')
+  .option('-j, --json', 'Output telemetry as JSON', false)
+  .option('-w, --watch', 'Live watch and refresh dashboard', false)
+  .option('-i, --interval <seconds>', 'Refresh interval in seconds for watch mode', '10')
+  .option('-a, --all', 'Query all registered repositories from config and manifest', false)
+  .option('--add <repo>', 'Add a repository to the fleet registry')
+  .option('--remove <repo>', 'Remove a repository from the fleet registry')
+  .action(async (repos, options) => {
+    await runMonitor({ ...options, repos });
   });
 
 program

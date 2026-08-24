@@ -35,6 +35,11 @@
       "items": { "type": "string" },
       "description": "List of core engineering skills to install/sync"
     },
+    "repositories": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "List of fleet repositories tracked for multi-repo monitoring"
+    },
     "autoUpdate": {
       "type": "object",
       "properties": {

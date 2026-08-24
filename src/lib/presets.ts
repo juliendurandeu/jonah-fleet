@@ -13,6 +13,7 @@ export interface FleetManifest {
     'product-planning': boolean;
   };
   skills: string[];
+  repositories?: string[];
   autoUpdate?: {
     enabled: boolean;
     channel: 'stable' | 'latest';

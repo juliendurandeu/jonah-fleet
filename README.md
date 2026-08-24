@@ -66,6 +66,25 @@ To synchronize with the latest fleet version:
 npx jonah-fleet sync
 ```
 
+### 4. Multi-repo Fleet Monitoring
+
+Monitor health, in-flight autowork claims, open PR review loops, and token usage across your entire fleet:
+
+```bash
+# Register repositories to your fleet registry
+npx jonah-fleet monitor --add juliendurandeu/Jonah-RuPaul
+npx jonah-fleet monitor --add juliendurandeu/jonah-newsletter-gemini
+
+# View terminal dashboard
+npx jonah-fleet monitor
+
+# Live watch mode with auto-refresh
+npx jonah-fleet monitor --watch --interval 10
+
+# Output as JSON
+npx jonah-fleet monitor --json
+```
+
 ---
 
 ## 🛠️ Repository Layout

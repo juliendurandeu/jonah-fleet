@@ -2,18 +2,63 @@ import pc from 'picocolors';
 import { loadManifest } from '../lib/manifest.js';
 import { checkDrift } from '../lib/diff.js';
 import { FLEET_VERSION } from '../lib/presets.js';
+import { runMonitor } from './monitor.js';
 
 export interface StatusOptions {
   cwd?: string;
+  fleet?: boolean;
+  json?: boolean;
 }
 
 export async function runStatus(options: StatusOptions = {}): Promise<void> {
   const cwd = options.cwd || process.cwd();
+
+  if (options.fleet) {
+    await runMonitor({ cwd, json: options.json });
+    return;
+  }
+
   const manifest = loadManifest(cwd);
 
   if (!manifest) {
+    if (options.json) {
+      console.log(JSON.stringify({ error: 'No agents-manifest.json found', cwd }, null, 2));
+      return;
+    }
     console.log(pc.yellow(`\n⚠️  No agents-manifest.json found in ${cwd}. This project is not configured with Jonah Fleet.`));
     console.log(pc.cyan(`Run 'npx jonah-fleet init' to set up autonomous agent routines.\n`));
+    return;
+  }
+
+  const drift = checkDrift(cwd, manifest);
+  const hasDrift =
+    drift.missingPrompts.length > 0 ||
+    drift.modifiedPrompts.length > 0 ||
+    drift.missingWorkflows.length > 0 ||
+    drift.modifiedWorkflows.length > 0 ||
+    drift.missingSkills.length > 0;
+
+  if (options.json) {
+    console.log(
+      JSON.stringify(
+        {
+          cwd,
+          version: manifest.version,
+          fleetLatestVersion: FLEET_VERSION,
+          preset: manifest.preset,
+          autoUpdate: manifest.autoUpdate,
+          routines: manifest.routines,
+          skills: manifest.skills,
+          repositories: manifest.repositories || [],
+          drift: {
+            hasDrift,
+            ...drift,
+          },
+        },
+        null,
+        2
+      )
+    );
     return;
   }
 
@@ -32,13 +77,12 @@ export async function runStatus(options: StatusOptions = {}): Promise<void> {
     console.log(`    - ${pc.cyan(skill)}`);
   }
 
-  const drift = checkDrift(cwd, manifest);
-  const hasDrift =
-    drift.missingPrompts.length > 0 ||
-    drift.modifiedPrompts.length > 0 ||
-    drift.missingWorkflows.length > 0 ||
-    drift.modifiedWorkflows.length > 0 ||
-    drift.missingSkills.length > 0;
+  if (manifest.repositories && manifest.repositories.length > 0) {
+    console.log(pc.bold('\n  Fleet Repositories:'));
+    for (const repo of manifest.repositories) {
+      console.log(`    - ${pc.cyan(repo)}`);
+    }
+  }
 
   console.log(pc.bold('\n  Drift / Health:'));
   if (!hasDrift) {

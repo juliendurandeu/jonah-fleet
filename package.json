@@ -1,0 +1,47 @@
+{
+  "name": "jonah-fleet",
+  "version": "1.0.0",
+  "description": "Standalone autonomous agent fleet with Symphony orchestration, claim protocols, and continuous improvement loops",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "jonah-fleet": "./dist/index.js"
+  },
+  "type": "module",
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "lint": "eslint src tests",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "format": "prettier --write \"**/*.{ts,json,md,yml}\""
+  },
+  "keywords": [
+    "agents",
+    "antigravity",
+    "symphony",
+    "autowork",
+    "code-review",
+    "llm-orchestration"
+  ],
+  "author": "Julien Durandeu",
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^12.1.0",
+    "picocolors": "^1.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  },
+  "files": [
+    "dist",
+    "templates",
+    "schema.json",
+    "README.md",
+    "CHANGELOG.md"
+  ]
+}

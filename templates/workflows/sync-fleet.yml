@@ -1,0 +1,63 @@
+name: Sync Jonah Fleet
+
+on:
+  schedule:
+    # Check for fleet updates weekly on Mondays at 06:00 UTC
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+  repository_dispatch:
+    types: [fleet-release]
+
+jobs:
+  sync-fleet:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Configure Git author identity
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Run jonah-fleet sync
+        id: sync
+        run: |
+          npx jonah-fleet sync --check || true
+          npx jonah-fleet sync --force
+
+      - name: Check for changes
+        id: git-check
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create Pull Request for Fleet Updates
+        if: steps.git-check.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT || github.token }}
+        run: |
+          BRANCH_NAME="chore/sync-jonah-fleet-$(date +%Y%m%d)"
+          git checkout -B "$BRANCH_NAME"
+          git add .
+          git commit -m "chore(fleet): sync prompt routines and workflows from jonah-fleet"
+          git push -u origin "$BRANCH_NAME" --force
+
+          gh pr create \
+            --head "$BRANCH_NAME" \
+            --base main \
+            --title "chore(fleet): sync prompt routines and workflows from jonah-fleet" \
+            --body "Automated update from \`jonah-fleet\`. Synchronizes latest prompt invariants, claim protocols, and workflow fixes."

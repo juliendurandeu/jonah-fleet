@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "JonahFleetManifest",
+  "description": "Configuration manifest for Jonah Fleet autonomous agents",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string",
+      "description": "The pinned fleet version or semver range"
+    },
+    "preset": {
+      "type": "string",
+      "enum": ["minimal", "standard", "full", "custom"],
+      "default": "standard",
+      "description": "Selected routine bundle preset"
+    },
+    "routines": {
+      "type": "object",
+      "properties": {
+        "autowork": { "type": "boolean" },
+        "peer-review": { "type": "boolean" },
+        "optimizer": { "type": "boolean" },
+        "issues-housekeeping": { "type": "boolean" },
+        "dependency-update-security-check": { "type": "boolean" },
+        "product-planning": { "type": "boolean" }
+      },
+      "additionalProperties": false,
+      "description": "Granular routine toggles"
+    },
+    "skills": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "List of core engineering skills to install/sync"
+    },
+    "autoUpdate": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean", "default": true },
+        "channel": { "type": "string", "enum": ["stable", "latest"], "default": "stable" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": ["version", "preset", "routines", "skills"],
+  "additionalProperties": false
+}

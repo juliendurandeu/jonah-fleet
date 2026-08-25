@@ -30,6 +30,25 @@ describe('Prompt Validation & Invariants', () => {
     }
   });
 
+  it('validates optimizer.md contains per-agent token aggregation protocol and scorecard schema', () => {
+    const templatePath = path.join(promptsDir, 'optimizer.md');
+    const content = fs.readFileSync(templatePath, 'utf8');
+
+    // Instructions Step 1 - Token aggregation
+    expect(content).toContain('Token & Cost Consumption by Agent');
+    expect(content).toContain('autowork');
+    expect(content).toContain('peer-review');
+    expect(content).toContain('issues-housekeeping');
+    expect(content).toContain('dependency-update-security-check');
+    expect(content).toContain('optimizer');
+    expect(content).toContain('product-planning');
+    expect(content).toContain('70%');
+    expect(content).toContain('ORCHESTRATION.md');
+
+    // Scorecard table in logging section
+    expect(content).toMatch(/\| *Routine *\| *Runs *\| *Input Tokens *\| *Output Tokens *\| *Total Tokens *\| *Cost *\| *Fleet % *\| *Avg Iterations *\| *Max Iterations *\| *Status \/ Anomaly *\|/);
+  });
+
   it('validates optimizer.md defines concrete token anomaly heuristics and preventative remediation actions', () => {
     const optimizerPath = path.join(promptsDir, 'optimizer.md');
     const content = fs.readFileSync(optimizerPath, 'utf8');
@@ -61,17 +80,17 @@ describe('Prompt Validation & Invariants', () => {
     expect(content).toContain('Review Loop Burn');
   });
 
-  it('ensures prompt templates in templates/prompts are synchronized with .github/prompts', () => {
-    const githubPromptsDir = path.join(process.cwd(), '.github', 'prompts');
-    if (fs.existsSync(githubPromptsDir)) {
-      for (const filename of fs.readdirSync(promptsDir)) {
-        const templatePath = path.join(promptsDir, filename);
-        const githubPath = path.join(githubPromptsDir, filename);
-        if (fs.existsSync(githubPath)) {
-          const templateContent = fs.readFileSync(templatePath, 'utf8');
-          const githubContent = fs.readFileSync(githubPath, 'utf8');
-          expect(githubContent).toBe(templateContent);
-        }
+  it('ensures prompt templates in templates/prompts are strictly synchronized with .github/prompts', () => {
+    const githubPromptsDir = path.resolve(process.cwd(), '.github', 'prompts');
+    expect(fs.existsSync(githubPromptsDir)).toBe(true);
+
+    for (const filename of fs.readdirSync(promptsDir)) {
+      const templatePath = path.join(promptsDir, filename);
+      const githubPath = path.join(githubPromptsDir, filename);
+      if (fs.existsSync(githubPath)) {
+        const templateContent = fs.readFileSync(templatePath, 'utf8');
+        const githubContent = fs.readFileSync(githubPath, 'utf8');
+        expect(githubContent).toBe(templateContent);
       }
     }
   });

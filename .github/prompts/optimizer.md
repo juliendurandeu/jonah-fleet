@@ -13,6 +13,7 @@ The run is SUCCESS if ALL of these are true:
 - [ ] All log files from the incremental window in `.github/prompts/logs/` have been scanned
 - [ ] Every FAILURE log has been categorized and analyzed
 - [ ] Inefficiency and review loops per PR have been computed across SUCCESS logs
+- [ ] Per-agent token and cost consumption metrics have been aggregated across in-window logs and evaluated against the 70% weekly budget ceiling in `ORCHESTRATION.md`
 - [ ] Closed bug issues and merged bug-fix PRs in the window have been analyzed for systemic root causes
 - [ ] For each fixable pattern:
   - If project-specific: opened a local PR with a prompt, template, or test fix and marked ready for review
@@ -38,19 +39,26 @@ If any criterion cannot be met, stop immediately and log FAILURE with the reason
 
 ### 1. Collect signals & analyze logs
 
-1. **Scan in-window log files**: Read all log files in `.github/prompts/logs/*/` within the incremental window.
-2. **Extract failure categories**: Group failures by `prompt_unclear`, `data_issue`, `token_limit`, and `infeasible_task`.
-3. **Compute efficiency metrics**: Identify PRs with 3+ review rounds or runs with high iteration usage.
-4. **Aggregate per-routine token & cost consumption**:
-   - Group log metadata by `Routine` (`autowork`, `peer-review`, `issues-housekeeping`, `dependency-update-security-check`, `optimizer`, `product-planning`).
-   - Calculate total input tokens, output tokens, total tokens, total estimated cost, run count, average iterations, max iterations, and percentage share of fleet spend.
-   - Calculate weekly token ceiling pacing against the global 70% budget ceiling (~8.75M tokens/week) defined in `ORCHESTRATION.md`.
+1. **Scan in-window log files**: Read all log files in `.github/prompts/logs/*/` within the incremental scan window.
+2. **Extract failure categories**: Categorize runs logging `FAILURE` (`prompt_unclear`, `data_issue`, `token_limit`, `infeasible_task`).
+3. **Compute efficiency metrics**: Identify PRs experiencing $\ge 3$ review bounce rounds and runs with high iteration usage relative to limits.
+4. **Aggregate per-agent token & cost consumption**:
+   - Parse the metadata table from each in-window log: `Routine`, `Input tokens`, `Output tokens`, `Estimated cost`, `Iterations used` (e.g. `26 / 65`), and `Result` (`SUCCESS` or `FAILURE`).
+   - Group logs by `Routine` (`autowork`, `peer-review`, `issues-housekeeping`, `dependency-update-security-check`, `optimizer`, `product-planning`).
+   - For each routine, compute:
+     - **Run count**: total completed runs.
+     - **Token volume**: total input tokens, total output tokens, combined total tokens.
+     - **Cost volume**: sum of estimated costs ($).
+     - **Fleet spend share**: `(routine total cost / fleet total cost) * 100` (or token volume share if cost is unmetered).
+     - **Token averages & peaks**: average tokens per run and max tokens in a single run.
+     - **Iteration efficiency**: average iterations used per run and percentage of budget consumed.
+   - **Weekly token ceiling pacing**: Compare total fleet tokens and per-routine volume against the 70% weekly token budget ceiling specified in `ORCHESTRATION.md` (~8.75M tokens/week, and per-routine budget overrides in `agents-manifest.json` if present). Determine burn rate velocity (tokens/day) and projected 7-day total.
 5. **Evaluate Token Anomaly Heuristics**: Detect actionable anomalies using concrete numerical thresholds:
    - **Token Surge**: Routine average token consumption increases >50% week-over-week (or against baseline).
    - **Budget Hog**: A single agent routine consumes >75% of total fleet token allowance.
    - **Iteration Ceiling Exhaustion**: >20% of runs in a routine terminate at the `token_limit` / max iteration cap.
    - **Review Loop Burn**: Pull requests experiencing >= 3 bounce rounds between autowork and peer-review over unresolved or recurring findings.
-6. **Analyze resolved bugs**: Review closed bug issues and merged bug-fix PRs for missing checks in authoring (`autowork.md`) or review (`peer-review.md`).
+6. **Analyze resolved bugs & review comments**: Examine closed bug issues, merged bug-fix PRs, and review feedback for missing checks in authoring (`autowork.md`) or review (`peer-review.md`).
 
 ### 2. Formulate preventative improvements
 
@@ -78,7 +86,7 @@ Translate findings into concrete preventative improvements and remediation trigg
 After completing (SUCCESS or FAILURE), write a log file to `.github/prompts/logs/optimizer/{timestamp}.md` following the schema in `.github/prompts/logs/_template.md`. Include:
 - Prompt SHA
 - Analyzed logs count and identified patterns
-- Per-Agent Token & Cost Consumption Scorecard table:
+- **Token & Cost Consumption by Agent** scorecard table:
 
 ```markdown
 ### Token & Cost Consumption by Agent
@@ -93,6 +101,7 @@ After completing (SUCCESS or FAILURE), write a log file to `.github/prompts/logs
 | `product-planning` | 0 | 0 | 0 | 0 | $0.00 | 0.0% | 0 | 0 | Nominal |
 ```
 
+- Weekly token budget pacing evaluation (pacing vs 70% ceiling in `ORCHESTRATION.md`)
 - PRs opened (local or upstream)
 
 **Important**: Commit the log file directly to `main` and push. Follow the Log delivery fallback in `ORCHESTRATION.md` if direct push fails.

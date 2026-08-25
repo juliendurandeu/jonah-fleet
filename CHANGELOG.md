@@ -5,6 +5,14 @@ All notable changes to `jonah-fleet` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Comprehensive bi-directional optimization bridge evaluations test suite and synthetic run log fixtures (`src/lib/evals.ts`, `tests/evals.test.ts`).
+- Upstream contribution CLI test suite with mock executor and dry-run support (`tests/contribute.test.ts`).
+- Downstream synchronization workflow and drift scenario test suite (`tests/sync-workflow.test.ts`).
+- Dedicated `evals` CI workflow job in `.github/workflows/ci.yml` and `test:evals` npm script.
+
 ## [1.2.0] - 2026-08-30
 
 ### Added
@@ -27,13 +35,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Per-routine token, cost, and iteration aggregation in `src/lib/fleet-query.ts` (`RoutineTokenSpend` and `TokenSpendInfo.byRoutine`).
 - Support for extracting `iterationsUsed` and `duration` in `parseLogMetadata()`.
 - Extended test coverage in `tests/fleet-query.test.ts` for per-routine token stats, fleet share calculation, and parsing edge cases.
-
-## [1.1.1] - 2026-08-26
-
-### Added
-- Explicit OpenAI Symphony specification lineage documentation and conceptual mapping table.
-- Architectural comparison matrix contrasting Jonah Fleet's zero-daemon GitHub-native model against persistent multi-agent runtimes (SwarmClaw).
-- Synchronized template orchestration docs under `templates/prompts/ORCHESTRATION.md`.
 
 ## [1.1.0] - 2026-08-24
 

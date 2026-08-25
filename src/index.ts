@@ -62,6 +62,9 @@ program
   .description('Submit local prompt improvements back upstream to jonah-fleet')
   .option('-t, --title <title>', 'Contribution PR title')
   .option('-b, --body <body>', 'Contribution PR description')
+  .option('-p, --prompt <prompt>', 'Target prompt template being refined')
+  .option('-r, --repo <repo>', 'Upstream target repository (defaults to juliendurandeu/jonah-fleet)')
+  .option('-d, --dry-run', 'Preview contribution branch and PR command without executing', false)
   .action(async (options) => {
     await runContribute(options);
   });

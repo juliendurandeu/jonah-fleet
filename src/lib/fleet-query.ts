@@ -40,12 +40,26 @@ export interface OpenPRInfo {
   body?: string;
 }
 
+export interface RoutineTokenSpend {
+  routine: string;
+  runCount: number;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  estimatedCost: number;
+  avgTokensPerRun: number;
+  maxTokensPerRun: number;
+  avgIterationsUsed?: number;
+  fleetSharePercent: number;
+}
+
 export interface TokenSpendInfo {
   sevenDayInputTokens: number;
   sevenDayOutputTokens: number;
   sevenDayTotalTokens: number;
   sevenDayEstimatedCost: number;
   recentRunCount: number;
+  byRoutine: Record<string, RoutineTokenSpend>;
 }
 
 export interface RepoFleetStatus {
@@ -80,6 +94,8 @@ export interface LogMetadata {
   inputTokens?: number;
   outputTokens?: number;
   estimatedCost?: number;
+  duration?: number;
+  iterationsUsed?: number;
 }
 
 export function parseLogMetadata(content: string): LogMetadata | null {
@@ -99,15 +115,22 @@ export function parseLogMetadata(content: string): LogMetadata | null {
       meta.timestamp = val;
     } else if (key === 'result') {
       meta.result = val;
-    } else if (key === 'input tokens') {
+    } else if (key === 'input tokens' || key === 'input_tokens') {
       const num = parseInt(val.replace(/[^\d]/g, ''), 10);
       if (!isNaN(num)) meta.inputTokens = num;
-    } else if (key === 'output tokens') {
+    } else if (key === 'output tokens' || key === 'output_tokens') {
       const num = parseInt(val.replace(/[^\d]/g, ''), 10);
       if (!isNaN(num)) meta.outputTokens = num;
-    } else if (key === 'estimated cost') {
+    } else if (key === 'estimated cost' || key === 'estimated_cost') {
       const num = parseFloat(val.replace(/[^0-9.]/g, ''));
       if (!isNaN(num)) meta.estimatedCost = num;
+    } else if (key === 'iterations used' || key === 'iterations' || key === 'iterations_used') {
+      const raw = val.split('/')[0].trim();
+      const num = parseInt(raw.replace(/[^\d]/g, ''), 10);
+      if (!isNaN(num)) meta.iterationsUsed = num;
+    } else if (key === 'duration') {
+      const num = parseInt(val.replace(/[^\d]/g, ''), 10);
+      if (!isNaN(num)) meta.duration = num;
     }
   }
 
@@ -121,10 +144,24 @@ export function computeTokenSpendFromLogs(logContents: string[], now: number = D
   const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
   const cutoff = now - SEVEN_DAYS_MS;
 
-  let inputTokens = 0;
-  let outputTokens = 0;
-  let cost = 0;
-  let runs = 0;
+  let totalInputTokens = 0;
+  let totalOutputTokens = 0;
+  let totalCost = 0;
+  let totalRuns = 0;
+
+  interface RoutineAccumulator {
+    routine: string;
+    runCount: number;
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    estimatedCost: number;
+    maxTokensPerRun: number;
+    iterationsSum: number;
+    iterationsCount: number;
+  }
+
+  const routineMap: Record<string, RoutineAccumulator> = {};
 
   for (const content of logContents) {
     const meta = parseLogMetadata(content);
@@ -133,18 +170,82 @@ export function computeTokenSpendFromLogs(logContents: string[], now: number = D
     const logTime = new Date(meta.timestamp).getTime();
     if (isNaN(logTime) || logTime < cutoff) continue;
 
-    runs++;
-    if (meta.inputTokens) inputTokens += meta.inputTokens;
-    if (meta.outputTokens) outputTokens += meta.outputTokens;
-    if (meta.estimatedCost) cost += meta.estimatedCost;
+    const routineName = meta.routine || 'unknown';
+    const input = meta.inputTokens || 0;
+    const output = meta.outputTokens || 0;
+    const tokens = input + output;
+    const cost = meta.estimatedCost || 0;
+
+    totalRuns++;
+    totalInputTokens += input;
+    totalOutputTokens += output;
+    totalCost += cost;
+
+    if (!routineMap[routineName]) {
+      routineMap[routineName] = {
+        routine: routineName,
+        runCount: 0,
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        estimatedCost: 0,
+        maxTokensPerRun: 0,
+        iterationsSum: 0,
+        iterationsCount: 0,
+      };
+    }
+
+    const acc = routineMap[routineName];
+    acc.runCount++;
+    acc.inputTokens += input;
+    acc.outputTokens += output;
+    acc.totalTokens += tokens;
+    acc.estimatedCost += cost;
+    if (tokens > acc.maxTokensPerRun) {
+      acc.maxTokensPerRun = tokens;
+    }
+    if (meta.iterationsUsed !== undefined) {
+      acc.iterationsSum += meta.iterationsUsed;
+      acc.iterationsCount++;
+    }
+  }
+
+  const sevenDayTotalTokens = totalInputTokens + totalOutputTokens;
+  const byRoutine: Record<string, RoutineTokenSpend> = {};
+
+  for (const [routineName, acc] of Object.entries(routineMap)) {
+    const avgTokensPerRun = acc.runCount > 0 ? Math.round(acc.totalTokens / acc.runCount) : 0;
+    const fleetSharePercent =
+      sevenDayTotalTokens > 0
+        ? Number(((acc.totalTokens / sevenDayTotalTokens) * 100).toFixed(2))
+        : 0;
+
+    const routineSpend: RoutineTokenSpend = {
+      routine: routineName,
+      runCount: acc.runCount,
+      inputTokens: acc.inputTokens,
+      outputTokens: acc.outputTokens,
+      totalTokens: acc.totalTokens,
+      estimatedCost: Number(acc.estimatedCost.toFixed(2)),
+      avgTokensPerRun,
+      maxTokensPerRun: acc.maxTokensPerRun,
+      fleetSharePercent,
+    };
+
+    if (acc.iterationsCount > 0) {
+      routineSpend.avgIterationsUsed = Number((acc.iterationsSum / acc.iterationsCount).toFixed(1));
+    }
+
+    byRoutine[routineName] = routineSpend;
   }
 
   return {
-    sevenDayInputTokens: inputTokens,
-    sevenDayOutputTokens: outputTokens,
-    sevenDayTotalTokens: inputTokens + outputTokens,
-    sevenDayEstimatedCost: cost,
-    recentRunCount: runs,
+    sevenDayInputTokens: totalInputTokens,
+    sevenDayOutputTokens: totalOutputTokens,
+    sevenDayTotalTokens,
+    sevenDayEstimatedCost: totalCost,
+    recentRunCount: totalRuns,
+    byRoutine,
   };
 }
 
@@ -219,6 +320,7 @@ export async function queryRepoFleetStatus(
       sevenDayTotalTokens: 0,
       sevenDayEstimatedCost: 0,
       recentRunCount: 0,
+      byRoutine: {},
     },
     staleWarnings: [],
   };

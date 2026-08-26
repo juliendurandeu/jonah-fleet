@@ -13,11 +13,40 @@
 
 `jonah-fleet` packages a complete suite of autonomous software engineering agents into a standalone repository and zero-install CLI (`npx jonah-fleet`). It turns any repository into an autonomous agent-driven development environment with:
 
-- **Symphony-aligned Orchestration**: Single-flight locking, stale-claim recovery, and reader/writer separation.
+- **Symphony-aligned Orchestration**: Built on the principles formalized by OpenAI's [Symphony spec](https://github.com/openai/symphony/blob/main/SPEC.md) — single-flight locking, dead-run claim recovery, reader/writer separation, and warm-session review loops.
 - **Autonomous Autowork**: Issue claiming, test-driven implementation (`/tdd`), automated draft PR creation, and warm-session review synchronization.
 - **Strict Peer Review**: Multi-angle subagent code reviews (`/code-review`), security scanning, and automated squash-merge.
 - **Issues Housekeeping & Dependency Security**: Weekly automated sweeps for duplicate detection, triage label assignment, and vulnerability remediation.
 - **Continuous Bi-Directional Improvement Bridge**: When local `optimizer.md` routines discover generic prompt optimizations, fixes can be submitted directly back upstream to `jonah-fleet` and distributed to all projects.
+
+---
+
+## 🏛️ Architecture: The Symphony Lineage
+
+Jonah Fleet is a **GitHub-native implementation of OpenAI's [Symphony specification](https://github.com/openai/symphony/blob/main/SPEC.md)** for orchestrating autonomous coding agents against issue trackers. 
+
+Rather than requiring a persistent orchestrator daemon or complex server infrastructure, Jonah Fleet maps all Symphony primitives directly onto GitHub and ephemeral CLI agent sessions:
+
+| Symphony Concept | Jonah Fleet Implementation |
+|---|---|
+| **`WORKFLOW.md`** (Repo config & prompt templates) | `AGENTS.md` (aliased as `GEMINI.md`/`CLAUDE.md`) + `.github/prompts/*.md` |
+| **Orchestrator** (Poll, dispatch, reconcile) | GitHub Actions event triggers + scheduled cron routines (zero persistent daemons) |
+| **Issue Tracker** | GitHub Issues with single-flight claim protocols (`🔒` claim comments) |
+| **Agent Runner** | Ephemeral agent sessions (**Antigravity CLI `agy`** via Gemini 3.7 Flash) in fresh clones |
+| **Reader/Writer Separation** | Autowork authors PRs; Peer Review routine is sole merge authority for product PRs |
+| **Warm-Context Synchronization** | In-session polling & live fix loops between Autowork and Peer Review before merge |
+| **Dead-Run Recovery** | Stale claim detection (>6h without live PR) via autowork & issues-housekeeping sweeps |
+
+### Architectural Comparison: Jonah Fleet vs. SwarmClaw
+
+| Dimension | ⚓ Jonah Fleet | 🦞 SwarmClaw (`@swarmclawai/swarmclaw`) |
+|---|---|---|
+| **Paradigm** | **Symphony-aligned, issue-driven workflow automation** | **Self-hosted multi-agent runtime & swarm platform** |
+| **Runtime Model** | Ephemeral CLI sessions (`agy`) spun up per issue/PR | Persistent daemon / Electron desktop app / server |
+| **State & Coordination** | GitHub Issues, PR labels, commit status checks, and run logs | Local SQLite / Postgres, live WebSockets, durable agent memory |
+| **Agent Topology** | Specialized asynchronous routines (Autowork, Peer Review, Housekeeping, Optimizer) | Interactive agent teams, live org charts, and hierarchical delegation |
+| **Best For** | Production software engineering pipelines & automated multi-repo maintenance | Interactive agent chat, local tool runtimes, multi-provider desktop UI |
+
 
 ---
 

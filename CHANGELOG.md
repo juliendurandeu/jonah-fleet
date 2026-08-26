@@ -5,7 +5,15 @@ All notable changes to `jonah-fleet` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2026-08-26
+
+### Added
+- Explicit OpenAI Symphony specification lineage documentation and conceptual mapping table.
+- Architectural comparison matrix contrasting Jonah Fleet's zero-daemon GitHub-native model against persistent multi-agent runtimes (SwarmClaw).
+- Synchronized template orchestration docs under `templates/prompts/ORCHESTRATION.md`.
+
 ## [1.1.0] - 2026-08-24
+
 
 ### Added
 - Multi-repository fleet monitoring command (`jonah-fleet monitor` / `jonah-fleet status --fleet`).

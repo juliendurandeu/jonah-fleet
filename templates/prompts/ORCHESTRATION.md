@@ -4,15 +4,16 @@ How agent routines in this repository are dispatched, claimed, and reconciled â€
 
 **Read this when** you need the claim protocol, the stale-claim conditions, the log-push rules, or the measurement-issue protocol â€” i.e. most Autowork, Peer Review, Analytics Review, and Issues Housekeeping runs.
 
-This project's automation is a GitHub-native instance of the pattern formalized for orchestrating coding agents against an issue tracker. There is **no long-running orchestrator daemon**; the roles map onto GitHub primitives:
+This project's automation is a GitHub-native implementation of the orchestration pattern formalized by OpenAI's [Symphony specification](https://github.com/openai/symphony/blob/main/SPEC.md) for orchestrating autonomous coding agents against an issue tracker. There is **no long-running orchestrator daemon**; the roles map onto GitHub primitives:
 
-| Concept | Implementation in this repo |
+| Symphony Concept | Implementation in this repo |
 |---|---|
 | `WORKFLOW.md` (repo-owned config + prompt templates) | `AGENTS.md` (aliased as `GEMINI.md`/`CLAUDE.md`) + `.github/prompts/*.md` |
 | Orchestrator (poll, dispatch, reconcile) | GitHub Actions triggers + scheduled routine sessions |
-| Issue tracker | GitHub Issues |
-| Agent runner | An ephemeral agent session (Antigravity CLI `agy`) in an isolated fresh clone |
+| Issue tracker (Linear in Symphony) | GitHub Issues |
+| Agent runner (Codex app-server in per-issue workspace) | An ephemeral agent session (Antigravity CLI `agy`) in an isolated fresh clone |
 | Tracker is reader/scheduler; mutations happen via agent tools | Routines only schedule; the agent session makes every GitHub write |
+
 
 Dispatch is both **scheduled** and **event-driven**. All routines run as ephemeral agent sessions via **Antigravity CLI (`agy`)** powered by **Gemini 3.7 Flash (High reasoning)**. The routine suite is calibrated to operate within a **strict 70% weekly token ceiling across all routines combined**, supervised by `optimizer.md`:
 - **Scheduled cron sweeps**: Autowork runs periodically (`autowork-cron.yml`), complemented by prompt optimization (`prompt-optimizer-cron.yml`), issues housekeeping (`issues-housekeeping-cron.yml`), and dependency security checks (`dependency-check-cron.yml`).

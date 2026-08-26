@@ -32,4 +32,15 @@ describe('Manifest generation', () => {
     expect(manifest.skills).toContain('to-spec');
     expect(manifest.skills).toContain('to-tickets');
   });
+
+  it('supports telemetry configuration in manifest', () => {
+    const manifest = createDefaultManifest('standard');
+    manifest.telemetry = {
+      enabled: true,
+      endpoint: 'https://telemetry.example.com/api/events',
+      weeklyTokenBudget: 8_750_000,
+    };
+    expect(manifest.telemetry.enabled).toBe(true);
+    expect(manifest.telemetry.weeklyTokenBudget).toBe(8_750_000);
+  });
 });

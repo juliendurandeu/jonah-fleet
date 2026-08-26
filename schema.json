@@ -47,6 +47,15 @@
         "channel": { "type": "string", "enum": ["stable", "latest"], "default": "stable" }
       },
       "additionalProperties": false
+    },
+    "telemetry": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean", "default": false },
+        "endpoint": { "type": "string", "description": "Optional telemetry collector webhook or API endpoint URL" },
+        "weeklyTokenBudget": { "type": "number", "default": 8750000, "description": "Global weekly token ceiling across fleet (~8.75M tokens/week)" }
+      },
+      "additionalProperties": false
     }
   },
   "required": ["version", "preset", "routines", "skills"],

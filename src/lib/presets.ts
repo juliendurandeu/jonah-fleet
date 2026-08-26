@@ -18,6 +18,11 @@ export interface FleetManifest {
     enabled: boolean;
     channel: 'stable' | 'latest';
   };
+  telemetry?: {
+    enabled?: boolean;
+    endpoint?: string;
+    weeklyTokenBudget?: number;
+  };
 }
 
 export const PRESET_CONFIGS: Record<Exclude<PresetName, 'custom'>, { routines: FleetManifest['routines']; skills: string[] }> = {

@@ -35,6 +35,8 @@ program
   .command('status')
   .description('Check the status, health, and drift of installed agent routines and skills')
   .option('-f, --fleet', 'Display multi-repository fleet monitor overview', false)
+  .option('-t, --tokens', 'Display detailed per-agent token and cost breakdown', false)
+  .option('--detailed', 'Display detailed metrics breakdown', false)
   .option('-j, --json', 'Output status as JSON', false)
   .action(async (options) => {
     await runStatus(options);
@@ -43,6 +45,8 @@ program
 program
   .command('monitor [repos...]')
   .description('Monitor health, active claims, PR review loops, and token spend across fleet repositories')
+  .option('-t, --tokens', 'Display detailed per-agent token and cost breakdown', false)
+  .option('--detailed', 'Display detailed metrics breakdown', false)
   .option('-j, --json', 'Output telemetry as JSON', false)
   .option('-w, --watch', 'Live watch and refresh dashboard', false)
   .option('-i, --interval <seconds>', 'Refresh interval in seconds for watch mode', '10')

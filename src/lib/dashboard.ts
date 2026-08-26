@@ -3,9 +3,11 @@ import { RepoFleetStatus, summarizeFleet } from './fleet-query.js';
 
 export interface DashboardOptions {
   json?: boolean;
+  tokens?: boolean;
+  detailed?: boolean;
 }
 
-function formatTokens(num: number): string {
+export function formatTokens(num: number): string {
   if (num >= 1_000_000) {
     return `${(num / 1_000_000).toFixed(2)}M`;
   }
@@ -15,7 +17,7 @@ function formatTokens(num: number): string {
   return num.toString();
 }
 
-function formatCurrency(amount: number): string {
+export function formatCurrency(amount: number): string {
   return `$${amount.toFixed(2)}`;
 }
 
@@ -94,6 +96,23 @@ export function renderFleetDashboard(statuses: RepoFleetStatus[], options: Dashb
         ` | Cost: ${pc.bold(pc.green(formatCurrency(t.sevenDayEstimatedCost)))}`
     );
 
+    if (t.byRoutine && Object.keys(t.byRoutine).length > 0) {
+      const routines = Object.values(t.byRoutine).sort((a, b) => b.totalTokens - a.totalTokens);
+      for (const r of routines) {
+        const iterStr = r.avgIterationsUsed !== undefined ? `, avg ${r.avgIterationsUsed} iters` : '';
+        const tokenDetails =
+          options.tokens || options.detailed
+            ? ` (in: ${formatTokens(r.inputTokens)}, out: ${formatTokens(r.outputTokens)})`
+            : '';
+        lines.push(
+          `      • ${pc.bold(r.routine)}: ${pc.cyan(formatTokens(r.totalTokens))} tokens${pc.gray(tokenDetails)} ` +
+            pc.gray(`(${r.fleetSharePercent.toFixed(1)}%)`) +
+            ` | Cost: ${pc.green(formatCurrency(r.estimatedCost))} | ` +
+            `${r.runCount} run${r.runCount === 1 ? '' : 's'}${pc.gray(iterStr)}`
+        );
+      }
+    }
+
     // Stale Warnings
     if (s.staleWarnings.length > 0) {
       lines.push(pc.bold(pc.red('   ⚠️  Warnings:')));
@@ -121,6 +140,21 @@ export function renderFleetDashboard(statuses: RepoFleetStatus[], options: Dashb
       ` | Est. Cost: ${pc.bold(pc.green(formatCurrency(summary.totalEstimatedCost7d)))} ` +
       `across ${pc.bold(summary.totalRuns7d.toString())} runs`
   );
+
+  if (summary.byRoutine && Object.keys(summary.byRoutine).length > 0 && (options.tokens || options.detailed || statuses.length > 1)) {
+    lines.push(pc.bold('\n   Fleet Spend by Routine:'));
+    const fleetRoutines = Object.values(summary.byRoutine).sort((a, b) => b.totalTokens - a.totalTokens);
+    for (const r of fleetRoutines) {
+      const iterStr = r.avgIterationsUsed !== undefined ? `, avg ${r.avgIterationsUsed} iters` : '';
+      lines.push(
+        `      • ${pc.bold(r.routine)}: ${pc.cyan(formatTokens(r.totalTokens))} tokens ` +
+          pc.gray(`(${r.fleetSharePercent.toFixed(1)}%)`) +
+          ` | Cost: ${pc.green(formatCurrency(r.estimatedCost))} | ` +
+          `${r.runCount} run${r.runCount === 1 ? '' : 's'}${pc.gray(iterStr)}`
+      );
+    }
+  }
+
   lines.push(pc.bold('══════════════════════════════════════════════════════════════════\n'));
 
   return lines.join('\n');

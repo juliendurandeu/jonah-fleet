@@ -1,20 +1,26 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import pc from 'picocolors';
 import { loadManifest } from '../lib/manifest.js';
 import { checkDrift } from '../lib/diff.js';
 import { FLEET_VERSION } from '../lib/presets.js';
+import { computeTokenSpendFromLogs } from '../lib/fleet-query.js';
+import { formatTokens, formatCurrency } from '../lib/dashboard.js';
 import { runMonitor } from './monitor.js';
 
 export interface StatusOptions {
   cwd?: string;
   fleet?: boolean;
   json?: boolean;
+  tokens?: boolean;
+  detailed?: boolean;
 }
 
 export async function runStatus(options: StatusOptions = {}): Promise<void> {
   const cwd = options.cwd || process.cwd();
 
   if (options.fleet) {
-    await runMonitor({ cwd, json: options.json });
+    await runMonitor({ cwd, json: options.json, tokens: options.tokens, detailed: options.detailed });
     return;
   }
 
@@ -38,6 +44,32 @@ export async function runStatus(options: StatusOptions = {}): Promise<void> {
     drift.modifiedWorkflows.length > 0 ||
     drift.missingSkills.length > 0;
 
+  const logsDir = path.join(cwd, '.github/prompts/logs');
+  let tokenUsage = undefined;
+  if (fs.existsSync(logsDir)) {
+    const logContents: string[] = [];
+    const collectLogs = (dir: string) => {
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          collectLogs(fullPath);
+        } else if (entry.isFile() && entry.name.endsWith('.md')) {
+          try {
+            logContents.push(fs.readFileSync(fullPath, 'utf8'));
+          } catch {}
+        }
+      }
+    };
+    try {
+      collectLogs(logsDir);
+    } catch {}
+
+    if (logContents.length > 0) {
+      tokenUsage = computeTokenSpendFromLogs(logContents);
+    }
+  }
+
   if (options.json) {
     console.log(
       JSON.stringify(
@@ -50,6 +82,7 @@ export async function runStatus(options: StatusOptions = {}): Promise<void> {
           routines: manifest.routines,
           skills: manifest.skills,
           repositories: manifest.repositories || [],
+          tokenUsage,
           drift: {
             hasDrift,
             ...drift,
@@ -81,6 +114,33 @@ export async function runStatus(options: StatusOptions = {}): Promise<void> {
     console.log(pc.bold('\n  Fleet Repositories:'));
     for (const repo of manifest.repositories) {
       console.log(`    - ${pc.cyan(repo)}`);
+    }
+  }
+
+  if (tokenUsage && tokenUsage.recentRunCount > 0) {
+    console.log(pc.bold('\n  📈 7-Day Token Spend:'));
+    console.log(
+      `    Runs: ${pc.bold(tokenUsage.recentRunCount.toString())} | ` +
+        `Tokens: ${pc.bold(formatTokens(tokenUsage.sevenDayTotalTokens))} ` +
+        pc.gray(`(in: ${formatTokens(tokenUsage.sevenDayInputTokens)}, out: ${formatTokens(tokenUsage.sevenDayOutputTokens)})`) +
+        ` | Cost: ${pc.bold(pc.green(formatCurrency(tokenUsage.sevenDayEstimatedCost)))}`
+    );
+
+    if (tokenUsage.byRoutine && Object.keys(tokenUsage.byRoutine).length > 0) {
+      const routines = Object.values(tokenUsage.byRoutine).sort((a, b) => b.totalTokens - a.totalTokens);
+      for (const r of routines) {
+        const iterStr = r.avgIterationsUsed !== undefined ? `, avg ${r.avgIterationsUsed} iters` : '';
+        const tokenDetails =
+          options.tokens || options.detailed
+            ? ` (in: ${formatTokens(r.inputTokens)}, out: ${formatTokens(r.outputTokens)})`
+            : '';
+        console.log(
+          `      • ${pc.bold(r.routine)}: ${pc.cyan(formatTokens(r.totalTokens))} tokens${pc.gray(tokenDetails)} ` +
+            pc.gray(`(${r.fleetSharePercent.toFixed(1)}%)`) +
+            ` | Cost: ${pc.green(formatCurrency(r.estimatedCost))} | ` +
+            `${r.runCount} run${r.runCount === 1 ? '' : 's'}${pc.gray(iterStr)}`
+        );
+      }
     }
   }
 

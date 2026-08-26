@@ -52,4 +52,32 @@ describe('Monitor Command', () => {
     const parsed = JSON.parse(lastCall);
     expect(parsed.repositories[0].repo).toBe('owner/repo-a');
   });
+
+  it('runs monitor with tokens flag and renders per-routine breakdown in terminal', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    const mockExecutor = async (args: string[]) => {
+      if (args.includes('pr')) return '[]';
+      if (args.includes('issue')) return '[]';
+      if (args.includes('contents/agents-manifest.json')) {
+        return JSON.stringify({
+          content: Buffer.from(JSON.stringify({ version: '1.1.0', preset: 'standard' })).toString('base64'),
+        });
+      }
+      return '{}';
+    };
+
+    await runMonitor({
+      repos: ['owner/repo-tokens'],
+      tokens: true,
+      executor: mockExecutor,
+      cwd: tempDir,
+    });
+
+    expect(logSpy).toHaveBeenCalled();
+    const output = logSpy.mock.calls.map((c) => c[0]).join('\n');
+    expect(output).toContain('Jonah Fleet Multi-Repo Monitor');
+    expect(output).toContain('owner/repo-tokens');
+    expect(output).toContain('7-Day Token Spend');
+  });
 });

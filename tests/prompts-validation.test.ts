@@ -29,4 +29,51 @@ describe('Prompt Validation & Invariants', () => {
       expect(content).not.toContain('jonah-newsletter-gemini');
     }
   });
+
+  it('validates optimizer.md defines concrete token anomaly heuristics and preventative remediation actions', () => {
+    const optimizerPath = path.join(promptsDir, 'optimizer.md');
+    const content = fs.readFileSync(optimizerPath, 'utf8');
+
+    // Token Anomaly Heuristics
+    expect(content).toContain('Token Surge');
+    expect(content).toMatch(/Token Surge.*>50%/s);
+    expect(content).toContain('Budget Hog');
+    expect(content).toMatch(/Budget Hog.*>75%/s);
+    expect(content).toContain('Iteration Ceiling Exhaustion');
+    expect(content).toMatch(/Iteration Ceiling Exhaustion.*>20%/s);
+    expect(content).toContain('Review Loop Burn');
+    expect(content).toMatch(/Review Loop Burn.*(?:≥|>=)\s*3/s);
+
+    // Automated preventative actions
+    expect(content).toMatch(/pruning redundant instructions|instruction pruning/i);
+    expect(content).toMatch(/early exit|candidate skip/i);
+    expect(content).toMatch(/iteration ceiling|pre-ready self-audit/i);
+  });
+
+  it('validates ORCHESTRATION.md documents the token anomaly triage and remediation workflow', () => {
+    const orchestrationPath = path.join(templatesDir, 'prompts', 'ORCHESTRATION.md');
+    const content = fs.readFileSync(orchestrationPath, 'utf8');
+
+    expect(content).toContain('## Token Anomaly Triage & Remediation');
+    expect(content).toContain('Token Surge');
+    expect(content).toContain('Budget Hog');
+    expect(content).toContain('Iteration Ceiling Exhaustion');
+    expect(content).toContain('Review Loop Burn');
+  });
+
+  it('ensures prompt templates in templates/prompts are synchronized with .github/prompts', () => {
+    const githubPromptsDir = path.join(process.cwd(), '.github', 'prompts');
+    if (fs.existsSync(githubPromptsDir)) {
+      for (const filename of fs.readdirSync(promptsDir)) {
+        const templatePath = path.join(promptsDir, filename);
+        const githubPath = path.join(githubPromptsDir, filename);
+        if (fs.existsSync(githubPath)) {
+          const templateContent = fs.readFileSync(templatePath, 'utf8');
+          const githubContent = fs.readFileSync(githubPath, 'utf8');
+          expect(githubContent).toBe(templateContent);
+        }
+      }
+    }
+  });
 });
+

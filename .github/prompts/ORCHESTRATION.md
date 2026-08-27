@@ -96,3 +96,18 @@ Single source of truth for every routine's Logging section:
 1. **Direct commit to `main` is default**: For operational run logs under `.github/prompts/logs/**`, commit directly to `main` via GitHub API or git push.
 2. **Draft PR fallback**: If direct push fails, commit the log to a dedicated, fresh branch and open a draft PR carrying only the log files.
 3. **Automated landing**: `auto-merge-log-prs.yml` or `issues-housekeeping.md` lands accumulated log PRs. Draft log PRs are never reviewed by Peer Review and do not count toward Autowork's backpressure limits.
+
+---
+
+## Token Anomaly Triage & Remediation
+
+How token spend, runaway loops, and budget anomalies are detected, triaged, and remediated autonomously across the fleet:
+
+1. **Supervised Token Ceiling**: The fleet operates under a global 70% weekly token ceiling (~8.75M tokens/week across all routines). `optimizer.md` evaluates pacing during each scheduled sweep.
+2. **Anomaly Classification & Heuristics**:
+   - **Token Surge**: Average token spend per run for a specific routine increases >50% week-over-week. Trigger: prompt bloat or runaway context accumulation. Remediation: prompt instruction pruning, replacing verbose guidelines with concise leading words and progressive disclosure pointers.
+   - **Budget Hog**: A single agent routine consumes >75% of total fleet token allowance. Trigger: unbalanced dispatch frequency or unbounded candidate sweeps. Remediation: throttle cron frequency, introduce stricter candidate batching, or add early exit conditions.
+   - **Iteration Ceiling Exhaustion**: >20% of runs in a routine terminate at the `token_limit` / max iteration cap. Trigger: tasks too complex for single-flight execution or unbounded looping. Remediation: enforce vertical slicing / umbrella decomposition, tighten pre-ready self-audits, or refine termination bounds.
+   - **Review Loop Burn**: Pull requests experiencing $\ge 3$ bounce rounds between autowork and peer-review. Trigger: ambiguous reviewer feedback, pedantic non-blocking findings, or brittle test assertions. Remediation: tighten reviewer trust/noise rules, calibrate reviewer severity thresholds, and engage human escalation via ping-pong caps.
+3. **Automated Remediation PRs**: The optimizer automatically drafts targeted PRs—locally for repo-specific rules/configs, or upstream via `npx jonah-fleet contribute` for fleet-wide prompt/workflow improvements.
+

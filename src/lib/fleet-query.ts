@@ -85,6 +85,7 @@ export interface FleetSummary {
   totalTokens7d: number;
   totalEstimatedCost7d: number;
   totalRuns7d: number;
+  byRoutine?: Record<string, RoutineTokenSpend>;
 }
 
 export interface LogMetadata {
@@ -94,8 +95,8 @@ export interface LogMetadata {
   inputTokens?: number;
   outputTokens?: number;
   estimatedCost?: number;
-  duration?: number;
   iterationsUsed?: number;
+  duration?: number;
 }
 
 export function parseLogMetadata(content: string): LogMetadata | null {
@@ -150,7 +151,6 @@ export function computeTokenSpendFromLogs(logContents: string[], now: number = D
   let totalRuns = 0;
 
   interface RoutineAccumulator {
-    routine: string;
     runCount: number;
     inputTokens: number;
     outputTokens: number;
@@ -183,7 +183,6 @@ export function computeTokenSpendFromLogs(logContents: string[], now: number = D
 
     if (!routineMap[routineName]) {
       routineMap[routineName] = {
-        routine: routineName,
         runCount: 0,
         inputTokens: 0,
         outputTokens: 0,
@@ -485,6 +484,20 @@ export function summarizeFleet(statuses: RepoFleetStatus[]): FleetSummary {
     totalRuns7d: 0,
   };
 
+  const fleetByRoutine: Record<
+    string,
+    {
+      runCount: number;
+      inputTokens: number;
+      outputTokens: number;
+      totalTokens: number;
+      estimatedCost: number;
+      maxTokensPerRun: number;
+      iterationsSum: number;
+      iterationsCount: number;
+    }
+  > = {};
+
   for (const s of statuses) {
     summary.activeClaimsCount += s.activeClaims.length;
     summary.staleClaimsCount += s.activeClaims.filter((c) => c.isStale).length;
@@ -497,6 +510,63 @@ export function summarizeFleet(statuses: RepoFleetStatus[]): FleetSummary {
     summary.totalTokens7d += s.tokenUsage.sevenDayTotalTokens;
     summary.totalEstimatedCost7d += s.tokenUsage.sevenDayEstimatedCost;
     summary.totalRuns7d += s.tokenUsage.recentRunCount;
+
+    if (s.tokenUsage.byRoutine) {
+      for (const [rName, rSpend] of Object.entries(s.tokenUsage.byRoutine)) {
+        if (!fleetByRoutine[rName]) {
+          fleetByRoutine[rName] = {
+            runCount: 0,
+            inputTokens: 0,
+            outputTokens: 0,
+            totalTokens: 0,
+            estimatedCost: 0,
+            maxTokensPerRun: 0,
+            iterationsSum: 0,
+            iterationsCount: 0,
+          };
+        }
+        const acc = fleetByRoutine[rName];
+        acc.runCount += rSpend.runCount;
+        acc.inputTokens += rSpend.inputTokens;
+        acc.outputTokens += rSpend.outputTokens;
+        acc.totalTokens += rSpend.totalTokens;
+        acc.estimatedCost += rSpend.estimatedCost;
+        if (rSpend.maxTokensPerRun > acc.maxTokensPerRun) {
+          acc.maxTokensPerRun = rSpend.maxTokensPerRun;
+        }
+        if (rSpend.avgIterationsUsed !== undefined) {
+          acc.iterationsSum += rSpend.avgIterationsUsed * rSpend.runCount;
+          acc.iterationsCount += rSpend.runCount;
+        }
+      }
+    }
+  }
+
+  if (Object.keys(fleetByRoutine).length > 0) {
+    summary.byRoutine = {};
+    for (const [rName, acc] of Object.entries(fleetByRoutine)) {
+      const avgTokensPerRun = acc.runCount > 0 ? Math.round(acc.totalTokens / acc.runCount) : 0;
+      const fleetSharePercent =
+        summary.totalTokens7d > 0
+          ? Number(((acc.totalTokens / summary.totalTokens7d) * 100).toFixed(2))
+          : 0;
+
+      const rSpend: RoutineTokenSpend = {
+        routine: rName,
+        runCount: acc.runCount,
+        inputTokens: acc.inputTokens,
+        outputTokens: acc.outputTokens,
+        totalTokens: acc.totalTokens,
+        estimatedCost: Number(acc.estimatedCost.toFixed(2)),
+        avgTokensPerRun,
+        maxTokensPerRun: acc.maxTokensPerRun,
+        fleetSharePercent,
+      };
+      if (acc.iterationsCount > 0) {
+        rSpend.avgIterationsUsed = Number((acc.iterationsSum / acc.iterationsCount).toFixed(1));
+      }
+      summary.byRoutine[rName] = rSpend;
+    }
   }
 
   return summary;

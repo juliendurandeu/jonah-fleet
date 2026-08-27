@@ -22,6 +22,8 @@ export interface MonitorOptions {
   remove?: string;
   cwd?: string;
   executor?: GhExecutor;
+  tokens?: boolean;
+  detailed?: boolean;
 }
 
 export async function runMonitor(options: MonitorOptions = {}): Promise<void> {
@@ -81,7 +83,11 @@ export async function runMonitor(options: MonitorOptions = {}): Promise<void> {
       console.clear();
     }
 
-    const output = renderFleetDashboard(statuses, { json: options.json });
+    const output = renderFleetDashboard(statuses, {
+      json: options.json,
+      tokens: options.tokens,
+      detailed: options.detailed,
+    });
     console.log(output);
   };
 

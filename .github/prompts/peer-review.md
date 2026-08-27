@@ -19,7 +19,7 @@ The run is SUCCESS only if ALL of these are true:
 
 - [ ] Identified the target PR: if one was named in the invocation, reviewed exactly that PR; otherwise listed open PRs and selected one by priority
 - [ ] Ran the code-review pass (`/code-review` and security pass), and posted findings as inline review comments
-- [ ] Took exactly one final action: squash-merged (if PR is good, CI green and present, linked issue exists) OR posted findings and **converted the PR back to draft** (`gh pr ready <N> --undo`) for author/autowork in-session fixes OR, if round cap reached at round 5 with blocking findings, converted to draft and escalated to human
+- [ ] Took exactly one final action: squash-merged (if PR is good, CI green and present, and linked issue or self-contained PR spec exists) OR posted findings and **converted the PR back to draft** (`gh pr ready <N> --undo`) for author/autowork in-session fixes OR, if round cap reached at round 5 with blocking findings, converted to draft and escalated to human
 - [ ] If merging: captured deferred non-blocking findings per materiality bar (filed follow-up issues for material ones, batched or dropped immaterial ones)
 - [ ] If in Scan mode and no eligible PRs exist, logged SUCCESS with "No PRs to review"
 
@@ -37,7 +37,7 @@ If any criterion cannot be met, stop immediately and log FAILURE with the reason
 ## Final action: merge or bounce to draft
 
 Every review ends in exactly one of two states:
-- **Merge** — only if PR is good, CI is green and verified on the head commit, and has a linked issue (`Closes #N`).
+- **Merge** — only if PR is good, CI is green and verified on the head commit, and has a linked issue (`Closes #N`) or a clear self-contained PR description for external/contributor PRs.
   - Sequence: (1) squash-merge, (2) submit held review comments, (3) file follow-up issues for deferred material findings.
   - Immaterial findings (style/preference) default to dying in the review thread or getting batched.
   - Mechanical doc fixes (missing changelog line, doc typo in diff) can be committed directly to `main` after squash-merge.
@@ -55,6 +55,7 @@ Every review ends in exactly one of two states:
 - Do not attempt `REQUEST_CHANGES` or `APPROVE` on own PRs (GitHub rejects same-account review states). Always use `COMMENT` + draft toggle.
 - On re-review, do not raise new findings in code that was unchanged since the prior review — only inspect the delta commits.
 - Do not bounce a PR for non-blocking style/preference findings when all correctness checks pass.
+- Do not bounce an external contributor PR purely for missing `Closes #N` when the PR description provides a clear specification.
 
 ## Instructions
 
@@ -80,7 +81,7 @@ Check if `$PR_NUMBER` is set:
 
 1. Run `/code-review` over the diff (or delta commits if re-review) evaluating:
    - **Standards**: Conformance to `AGENTS.md` (or `CLAUDE.md`/`GEMINI.md`), conventions, and architecture.
-   - **Spec Compliance**: Verification against the linked issue's deliverables (`## Tasks`).
+   - **Spec Compliance**: Verification against the linked issue's deliverables (`## Tasks`), or against the PR description's summary/changes if no tracking issue is linked.
 2. Run Security Pass: auth gates, permission checks, injection risks, sensitive credentials.
 3. If PR modifies rendered UI, verify screenshots or visual components if tooling/scripts are available.
 4. Run repository verification commands (tests, type-check) if CI status is unconfirmed.
@@ -88,8 +89,8 @@ Check if `$PR_NUMBER` is set:
 ### Step 5: Classify Findings & Make Decision
 
 Classify each finding:
-- **Blocking**: Broken logic, security hole, data loss, regression, broken tests, missing linked issue.
-- **Non-blocking**: Minor refactor, style preference, performance micro-optimization.
+- **Blocking**: Broken logic, security hole, data loss, regression, broken tests, missing deliverable from the issue/PR specification.
+- **Non-blocking**: Minor refactor, style preference, performance micro-optimization, missing `Closes #N` on contributor PRs with self-contained descriptions.
 
 ### Step 6: Execute Final Action
 

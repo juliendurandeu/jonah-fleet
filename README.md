@@ -65,7 +65,14 @@ Available presets:
 - **`standard`** (default): minimal + `issues-housekeeping` + `dependency-update-security-check`
 - **`full`**: standard + `product-planning`
 
-### 2. Configure project context (`AGENTS.md`)
+### 2. Configure GitHub Actions Permissions
+
+To ensure agent workflows can create and merge PRs and run without getting stuck awaiting approval:
+
+1. **Workflow permissions**: Go to **Settings** → **Actions** → **General** → **Workflow permissions**, choose **"Read and write permissions"**, and check **"Allow GitHub Actions to create and approve pull requests"**.
+2. **Fork pull request workflows**: Under **Actions** → **General** → **Fork pull request workflows**, configure the workflow approval policy (*e.g.* **"Require approval for first-time contributors"** or **"Run workflows without approval"** for private/internal repositories) to prevent automated runs from stalling awaiting manual approval.
+
+### 3. Configure project context (`AGENTS.md`)
 
 `jonah-fleet init` generates an `AGENTS.md` file (or uses your existing one). Specify your test commands, build scripts, and architecture patterns:
 
@@ -81,7 +88,7 @@ npm run type-check
 ```
 ```
 
-### 3. Check health and drift
+### 4. Check health and drift
 
 To inspect which routines and skills are active or verify alignment with latest fleet updates:
 
@@ -95,7 +102,7 @@ To synchronize with the latest fleet version:
 npx jonah-fleet sync
 ```
 
-### 4. Multi-repo Fleet Monitoring
+### 5. Multi-repo Fleet Monitoring
 
 Monitor health, in-flight autowork claims, open PR review loops, and token usage across your entire fleet:
 

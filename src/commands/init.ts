@@ -47,4 +47,10 @@ export async function runInit(options: InitOptions = {}): Promise<void> {
   }
 
   console.log(pc.bold(pc.green('\n🎉 Jonah Fleet initialization complete!\n')));
+  console.log(pc.cyan('Next steps for GitHub repository configuration:'));
+  console.log('  1. In Settings → Actions → General → Workflow permissions:');
+  console.log('     Select "Read and write permissions" and check "Allow GitHub Actions to create and approve pull requests".');
+  console.log('  2. In Settings → Actions → General → Fork pull request workflows:');
+  console.log('     Configure workflow approval settings to prevent automated runs from stalling awaiting approval.');
+  console.log('  3. Customize project context, build, and test commands in AGENTS.md.\n');
 }

@@ -5,6 +5,16 @@ All notable changes to `jonah-fleet` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Dedicated `trigger-autowork-manual.yml` workflow template for targeted on-demand Autowork runs via `workflow_dispatch` and issue badge links.
+- Badge link format documentation in `templates/docs/AGENTS.template.md` and repository `AGENTS.md`.
+- Default GitHub Issue Templates in `.github/ISSUE_TEMPLATE/` (`feature_request.md` and `bug_report.md`) embedding the Targeted Autowork badge link.
+- `trigger-autowork-manual.yml` added to `ROUTINE_TO_WORKFLOW_MAP.autowork` for automatic installation and drift detection.
+- Alias support for `issue_number` in `autowork-cron.yml` `workflow_dispatch` trigger.
+- Unit and drift tests in `tests/workflows-validation.test.ts` and `tests/installer.test.ts`.
+
 ## [1.2.0] - 2026-08-30
 
 ### Added

@@ -83,7 +83,12 @@ export const PRESET_CONFIGS: Record<Exclude<PresetName, 'custom'>, { routines: F
 };
 
 export const ROUTINE_TO_WORKFLOW_MAP: Record<keyof FleetManifest['routines'], string[]> = {
-  autowork: ['autowork-cron.yml', 'trigger-autowork-on-merge.yml', 'trigger-autowork-on-bug.yml'],
+  autowork: [
+    'autowork-cron.yml',
+    'trigger-autowork-on-merge.yml',
+    'trigger-autowork-on-bug.yml',
+    'trigger-autowork-manual.yml',
+  ],
   'peer-review': ['trigger-review-routine.yml'],
   optimizer: ['prompt-optimizer-cron.yml'],
   'issues-housekeeping': ['issues-housekeeping-cron.yml'],

@@ -40,12 +40,26 @@ export interface OpenPRInfo {
   body?: string;
 }
 
+export interface RoutineTokenSpend {
+  routine: string;
+  runCount: number;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  estimatedCost: number;
+  avgTokensPerRun: number;
+  maxTokensPerRun: number;
+  avgIterationsUsed?: number;
+  fleetSharePercent: number;
+}
+
 export interface TokenSpendInfo {
   sevenDayInputTokens: number;
   sevenDayOutputTokens: number;
   sevenDayTotalTokens: number;
   sevenDayEstimatedCost: number;
   recentRunCount: number;
+  byRoutine?: Record<string, RoutineTokenSpend>;
 }
 
 export interface RepoFleetStatus {
@@ -71,6 +85,7 @@ export interface FleetSummary {
   totalTokens7d: number;
   totalEstimatedCost7d: number;
   totalRuns7d: number;
+  byRoutine?: Record<string, RoutineTokenSpend>;
 }
 
 export interface LogMetadata {
@@ -80,6 +95,8 @@ export interface LogMetadata {
   inputTokens?: number;
   outputTokens?: number;
   estimatedCost?: number;
+  iterationsUsed?: number;
+  duration?: number;
 }
 
 export function parseLogMetadata(content: string): LogMetadata | null {
@@ -108,6 +125,12 @@ export function parseLogMetadata(content: string): LogMetadata | null {
     } else if (key === 'estimated cost') {
       const num = parseFloat(val.replace(/[^0-9.]/g, ''));
       if (!isNaN(num)) meta.estimatedCost = num;
+    } else if (key === 'iterations used') {
+      const num = parseInt(val.replace(/[^\d/].*/, '').split('/')[0].trim(), 10);
+      if (!isNaN(num)) meta.iterationsUsed = num;
+    } else if (key === 'duration') {
+      const num = parseInt(val.replace(/[^\d]/g, ''), 10);
+      if (!isNaN(num)) meta.duration = num;
     }
   }
 
@@ -121,10 +144,23 @@ export function computeTokenSpendFromLogs(logContents: string[], now: number = D
   const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
   const cutoff = now - SEVEN_DAYS_MS;
 
-  let inputTokens = 0;
-  let outputTokens = 0;
-  let cost = 0;
-  let runs = 0;
+  let totalInputTokens = 0;
+  let totalOutputTokens = 0;
+  let totalCost = 0;
+  let totalRuns = 0;
+
+  interface RoutineAccumulator {
+    runCount: number;
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    estimatedCost: number;
+    maxTokensPerRun: number;
+    iterationsSum: number;
+    iterationsCount: number;
+  }
+
+  const routineMap: Record<string, RoutineAccumulator> = {};
 
   for (const content of logContents) {
     const meta = parseLogMetadata(content);
@@ -133,18 +169,81 @@ export function computeTokenSpendFromLogs(logContents: string[], now: number = D
     const logTime = new Date(meta.timestamp).getTime();
     if (isNaN(logTime) || logTime < cutoff) continue;
 
-    runs++;
-    if (meta.inputTokens) inputTokens += meta.inputTokens;
-    if (meta.outputTokens) outputTokens += meta.outputTokens;
-    if (meta.estimatedCost) cost += meta.estimatedCost;
+    totalRuns++;
+    const input = meta.inputTokens || 0;
+    const output = meta.outputTokens || 0;
+    const tokens = input + output;
+    const cost = meta.estimatedCost || 0;
+
+    totalInputTokens += input;
+    totalOutputTokens += output;
+    totalCost += cost;
+
+    const routineName = meta.routine || 'unknown';
+    if (!routineMap[routineName]) {
+      routineMap[routineName] = {
+        runCount: 0,
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        estimatedCost: 0,
+        maxTokensPerRun: 0,
+        iterationsSum: 0,
+        iterationsCount: 0,
+      };
+    }
+
+    const acc = routineMap[routineName];
+    acc.runCount++;
+    acc.inputTokens += input;
+    acc.outputTokens += output;
+    acc.totalTokens += tokens;
+    acc.estimatedCost += cost;
+    if (tokens > acc.maxTokensPerRun) {
+      acc.maxTokensPerRun = tokens;
+    }
+    if (meta.iterationsUsed !== undefined) {
+      acc.iterationsSum += meta.iterationsUsed;
+      acc.iterationsCount++;
+    }
+  }
+
+  const sevenDayTotalTokens = totalInputTokens + totalOutputTokens;
+  const byRoutine: Record<string, RoutineTokenSpend> = {};
+
+  for (const [routineName, acc] of Object.entries(routineMap)) {
+    const avgTokensPerRun = acc.runCount > 0 ? Math.round(acc.totalTokens / acc.runCount) : 0;
+    const fleetSharePercent =
+      sevenDayTotalTokens > 0
+        ? Number(((acc.totalTokens / sevenDayTotalTokens) * 100).toFixed(2))
+        : 0;
+
+    const routineSpend: RoutineTokenSpend = {
+      routine: routineName,
+      runCount: acc.runCount,
+      inputTokens: acc.inputTokens,
+      outputTokens: acc.outputTokens,
+      totalTokens: acc.totalTokens,
+      estimatedCost: Number(acc.estimatedCost.toFixed(2)),
+      avgTokensPerRun,
+      maxTokensPerRun: acc.maxTokensPerRun,
+      fleetSharePercent,
+    };
+
+    if (acc.iterationsCount > 0) {
+      routineSpend.avgIterationsUsed = Number((acc.iterationsSum / acc.iterationsCount).toFixed(1));
+    }
+
+    byRoutine[routineName] = routineSpend;
   }
 
   return {
-    sevenDayInputTokens: inputTokens,
-    sevenDayOutputTokens: outputTokens,
-    sevenDayTotalTokens: inputTokens + outputTokens,
-    sevenDayEstimatedCost: cost,
-    recentRunCount: runs,
+    sevenDayInputTokens: totalInputTokens,
+    sevenDayOutputTokens: totalOutputTokens,
+    sevenDayTotalTokens,
+    sevenDayEstimatedCost: totalCost,
+    recentRunCount: totalRuns,
+    byRoutine,
   };
 }
 
@@ -383,6 +482,20 @@ export function summarizeFleet(statuses: RepoFleetStatus[]): FleetSummary {
     totalRuns7d: 0,
   };
 
+  const fleetByRoutine: Record<
+    string,
+    {
+      runCount: number;
+      inputTokens: number;
+      outputTokens: number;
+      totalTokens: number;
+      estimatedCost: number;
+      maxTokensPerRun: number;
+      iterationsSum: number;
+      iterationsCount: number;
+    }
+  > = {};
+
   for (const s of statuses) {
     summary.activeClaimsCount += s.activeClaims.length;
     summary.staleClaimsCount += s.activeClaims.filter((c) => c.isStale).length;
@@ -395,6 +508,63 @@ export function summarizeFleet(statuses: RepoFleetStatus[]): FleetSummary {
     summary.totalTokens7d += s.tokenUsage.sevenDayTotalTokens;
     summary.totalEstimatedCost7d += s.tokenUsage.sevenDayEstimatedCost;
     summary.totalRuns7d += s.tokenUsage.recentRunCount;
+
+    if (s.tokenUsage.byRoutine) {
+      for (const [rName, rSpend] of Object.entries(s.tokenUsage.byRoutine)) {
+        if (!fleetByRoutine[rName]) {
+          fleetByRoutine[rName] = {
+            runCount: 0,
+            inputTokens: 0,
+            outputTokens: 0,
+            totalTokens: 0,
+            estimatedCost: 0,
+            maxTokensPerRun: 0,
+            iterationsSum: 0,
+            iterationsCount: 0,
+          };
+        }
+        const acc = fleetByRoutine[rName];
+        acc.runCount += rSpend.runCount;
+        acc.inputTokens += rSpend.inputTokens;
+        acc.outputTokens += rSpend.outputTokens;
+        acc.totalTokens += rSpend.totalTokens;
+        acc.estimatedCost += rSpend.estimatedCost;
+        if (rSpend.maxTokensPerRun > acc.maxTokensPerRun) {
+          acc.maxTokensPerRun = rSpend.maxTokensPerRun;
+        }
+        if (rSpend.avgIterationsUsed !== undefined) {
+          acc.iterationsSum += rSpend.avgIterationsUsed * rSpend.runCount;
+          acc.iterationsCount += rSpend.runCount;
+        }
+      }
+    }
+  }
+
+  if (Object.keys(fleetByRoutine).length > 0) {
+    summary.byRoutine = {};
+    for (const [rName, acc] of Object.entries(fleetByRoutine)) {
+      const avgTokensPerRun = acc.runCount > 0 ? Math.round(acc.totalTokens / acc.runCount) : 0;
+      const fleetSharePercent =
+        summary.totalTokens7d > 0
+          ? Number(((acc.totalTokens / summary.totalTokens7d) * 100).toFixed(2))
+          : 0;
+
+      const rSpend: RoutineTokenSpend = {
+        routine: rName,
+        runCount: acc.runCount,
+        inputTokens: acc.inputTokens,
+        outputTokens: acc.outputTokens,
+        totalTokens: acc.totalTokens,
+        estimatedCost: Number(acc.estimatedCost.toFixed(2)),
+        avgTokensPerRun,
+        maxTokensPerRun: acc.maxTokensPerRun,
+        fleetSharePercent,
+      };
+      if (acc.iterationsCount > 0) {
+        rSpend.avgIterationsUsed = Number((acc.iterationsSum / acc.iterationsCount).toFixed(1));
+      }
+      summary.byRoutine[rName] = rSpend;
+    }
   }
 
   return summary;

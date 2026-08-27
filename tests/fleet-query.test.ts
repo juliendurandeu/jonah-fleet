@@ -130,6 +130,7 @@ describe('Fleet Query Engine', () => {
       inputTokens: 100000,
       outputTokens: 5000,
       estimatedCost: 1.25,
+      duration: 500,
     });
 
     const now = new Date('2026-08-24T12:00:00Z').getTime();
@@ -249,5 +250,148 @@ describe('Fleet Query Engine', () => {
     expect(summary.totalTokens7d).toBe(157000);
     expect(summary.totalEstimatedCost7d).toBeCloseTo(1.80, 2);
     expect(summary.totalRuns7d).toBe(3);
+  });
+
+  it('computes detailed per-routine token and iteration stats alongside fleet totals', () => {
+    const logAutowork1 = `
+# Run Log
+## Metadata
+| Field | Value |
+|-------|-------|
+| Routine | \`autowork\` |
+| Timestamp | \`2026-08-25T01:00:00Z\` |
+| Result | \`SUCCESS\` |
+| Input tokens | \`80000\` |
+| Output tokens | \`5000\` |
+| Estimated cost | \`$0.25\` |
+| Iterations used | \`20 / 65\` |
+| Duration | \`240s\` |
+`;
+
+    const logAutowork2 = `
+# Run Log
+## Metadata
+| Field | Value |
+|-------|-------|
+| Routine | \`autowork\` |
+| Timestamp | \`2026-08-25T07:00:00Z\` |
+| Result | \`SUCCESS\` |
+| Input tokens | \`120000\` |
+| Output tokens | \`10000\` |
+| Estimated cost | \`$0.40\` |
+| Iterations used | \`30 / 65\` |
+| Duration | \`360s\` |
+`;
+
+    const logReview = `
+# Run Log
+## Metadata
+| Field | Value |
+|-------|-------|
+| Routine | \`peer-review\` |
+| Timestamp | \`2026-08-25T08:00:00Z\` |
+| Result | \`SUCCESS\` |
+| Input tokens | \`45000\` |
+| Output tokens | \`5000\` |
+| Estimated cost | \`$0.15\` |
+| Iterations used | \`10 / 30\` |
+| Duration | \`120s\` |
+`;
+
+    const now = new Date('2026-08-25T12:00:00Z').getTime();
+    const spend = computeTokenSpendFromLogs([logAutowork1, logAutowork2, logReview], now);
+
+    expect(spend.recentRunCount).toBe(3);
+    expect(spend.sevenDayInputTokens).toBe(245000);
+    expect(spend.sevenDayOutputTokens).toBe(20000);
+    expect(spend.sevenDayTotalTokens).toBe(265000);
+    expect(spend.sevenDayEstimatedCost).toBeCloseTo(0.80, 2);
+
+    expect(spend.byRoutine).toBeDefined();
+    expect(Object.keys(spend.byRoutine!)).toEqual(['autowork', 'peer-review']);
+
+    // Autowork routine breakdown
+    const autowork = spend.byRoutine!.autowork;
+    expect(autowork).toBeDefined();
+    expect(autowork.routine).toBe('autowork');
+    expect(autowork.runCount).toBe(2);
+    expect(autowork.inputTokens).toBe(200000);
+    expect(autowork.outputTokens).toBe(15000);
+    expect(autowork.totalTokens).toBe(215000);
+    expect(autowork.estimatedCost).toBeCloseTo(0.65, 2);
+    expect(autowork.avgTokensPerRun).toBe(107500); // 215000 / 2
+    expect(autowork.maxTokensPerRun).toBe(130000); // 120000 + 10000
+    expect(autowork.avgIterationsUsed).toBe(25.0); // (20 + 30) / 2
+    expect(autowork.fleetSharePercent).toBeCloseTo(81.13, 2); // 215000 / 265000 * 100
+
+    // Peer Review routine breakdown
+    const peerReview = spend.byRoutine!['peer-review'];
+    expect(peerReview).toBeDefined();
+    expect(peerReview.routine).toBe('peer-review');
+    expect(peerReview.runCount).toBe(1);
+    expect(peerReview.inputTokens).toBe(45000);
+    expect(peerReview.outputTokens).toBe(5000);
+    expect(peerReview.totalTokens).toBe(50000);
+    expect(peerReview.estimatedCost).toBeCloseTo(0.15, 2);
+    expect(peerReview.avgTokensPerRun).toBe(50000);
+    expect(peerReview.maxTokensPerRun).toBe(50000);
+    expect(peerReview.avgIterationsUsed).toBe(10.0);
+    expect(peerReview.fleetSharePercent).toBeCloseTo(18.87, 2); // 50000 / 265000 * 100
+  });
+
+  it('handles edge cases in per-routine log parsing (missing routine, malformed numbers, zero runs)', () => {
+    const logMissingRoutine = `
+# Run Log
+## Metadata
+| Field | Value |
+|-------|-------|
+| Timestamp | \`2026-08-25T01:00:00Z\` |
+| Result | \`SUCCESS\` |
+| Input tokens | \`50000\` |
+| Output tokens | \`2000\` |
+| Estimated cost | \`$0.12\` |
+`;
+
+    const logMalformed = `
+# Run Log
+## Metadata
+| Field | Value |
+|-------|-------|
+| Routine | \`issues-housekeeping\` |
+| Timestamp | \`2026-08-25T02:00:00Z\` |
+| Result | \`SUCCESS\` |
+| Input tokens | \`N/A\` |
+| Output tokens | \`--\` |
+| Estimated cost | \`unknown\` |
+| Iterations used | \`invalid\` |
+`;
+
+    const now = new Date('2026-08-25T12:00:00Z').getTime();
+    const spend = computeTokenSpendFromLogs([logMissingRoutine, logMalformed], now);
+
+    expect(spend.recentRunCount).toBe(2);
+    expect(spend.byRoutine!.unknown).toBeDefined();
+    expect(spend.byRoutine!.unknown.runCount).toBe(1);
+    expect(spend.byRoutine!.unknown.inputTokens).toBe(50000);
+    expect(spend.byRoutine!.unknown.outputTokens).toBe(2000);
+    expect(spend.byRoutine!.unknown.totalTokens).toBe(52000);
+    expect(spend.byRoutine!.unknown.avgIterationsUsed).toBeUndefined();
+    expect(spend.byRoutine!.unknown.fleetSharePercent).toBe(100);
+
+    expect(spend.byRoutine!['issues-housekeeping']).toBeDefined();
+    expect(spend.byRoutine!['issues-housekeeping'].runCount).toBe(1);
+    expect(spend.byRoutine!['issues-housekeeping'].inputTokens).toBe(0);
+    expect(spend.byRoutine!['issues-housekeeping'].outputTokens).toBe(0);
+    expect(spend.byRoutine!['issues-housekeeping'].totalTokens).toBe(0);
+    expect(spend.byRoutine!['issues-housekeeping'].avgTokensPerRun).toBe(0);
+    expect(spend.byRoutine!['issues-housekeeping'].maxTokensPerRun).toBe(0);
+    expect(spend.byRoutine!['issues-housekeeping'].avgIterationsUsed).toBeUndefined();
+    expect(spend.byRoutine!['issues-housekeeping'].fleetSharePercent).toBe(0);
+
+    // Empty logs test
+    const emptySpend = computeTokenSpendFromLogs([], now);
+    expect(emptySpend.recentRunCount).toBe(0);
+    expect(emptySpend.sevenDayTotalTokens).toBe(0);
+    expect(emptySpend.byRoutine).toEqual({});
   });
 });

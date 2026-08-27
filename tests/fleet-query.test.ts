@@ -308,10 +308,10 @@ describe('Fleet Query Engine', () => {
     expect(spend.sevenDayEstimatedCost).toBeCloseTo(0.80, 2);
 
     expect(spend.byRoutine).toBeDefined();
-    expect(Object.keys(spend.byRoutine!)).toEqual(['autowork', 'peer-review']);
+    expect(Object.keys(spend.byRoutine)).toEqual(['autowork', 'peer-review']);
 
     // Autowork routine breakdown
-    const autowork = spend.byRoutine!.autowork;
+    const autowork = spend.byRoutine.autowork;
     expect(autowork).toBeDefined();
     expect(autowork.routine).toBe('autowork');
     expect(autowork.runCount).toBe(2);
@@ -325,7 +325,7 @@ describe('Fleet Query Engine', () => {
     expect(autowork.fleetSharePercent).toBeCloseTo(81.13, 2); // 215000 / 265000 * 100
 
     // Peer Review routine breakdown
-    const peerReview = spend.byRoutine!['peer-review'];
+    const peerReview = spend.byRoutine['peer-review'];
     expect(peerReview).toBeDefined();
     expect(peerReview.routine).toBe('peer-review');
     expect(peerReview.runCount).toBe(1);
@@ -370,23 +370,23 @@ describe('Fleet Query Engine', () => {
     const spend = computeTokenSpendFromLogs([logMissingRoutine, logMalformed], now);
 
     expect(spend.recentRunCount).toBe(2);
-    expect(spend.byRoutine!.unknown).toBeDefined();
-    expect(spend.byRoutine!.unknown.runCount).toBe(1);
-    expect(spend.byRoutine!.unknown.inputTokens).toBe(50000);
-    expect(spend.byRoutine!.unknown.outputTokens).toBe(2000);
-    expect(spend.byRoutine!.unknown.totalTokens).toBe(52000);
-    expect(spend.byRoutine!.unknown.avgIterationsUsed).toBeUndefined();
-    expect(spend.byRoutine!.unknown.fleetSharePercent).toBe(100);
+    expect(spend.byRoutine.unknown).toBeDefined();
+    expect(spend.byRoutine.unknown.runCount).toBe(1);
+    expect(spend.byRoutine.unknown.inputTokens).toBe(50000);
+    expect(spend.byRoutine.unknown.outputTokens).toBe(2000);
+    expect(spend.byRoutine.unknown.totalTokens).toBe(52000);
+    expect(spend.byRoutine.unknown.avgIterationsUsed).toBeUndefined();
+    expect(spend.byRoutine.unknown.fleetSharePercent).toBe(100);
 
-    expect(spend.byRoutine!['issues-housekeeping']).toBeDefined();
-    expect(spend.byRoutine!['issues-housekeeping'].runCount).toBe(1);
-    expect(spend.byRoutine!['issues-housekeeping'].inputTokens).toBe(0);
-    expect(spend.byRoutine!['issues-housekeeping'].outputTokens).toBe(0);
-    expect(spend.byRoutine!['issues-housekeeping'].totalTokens).toBe(0);
-    expect(spend.byRoutine!['issues-housekeeping'].avgTokensPerRun).toBe(0);
-    expect(spend.byRoutine!['issues-housekeeping'].maxTokensPerRun).toBe(0);
-    expect(spend.byRoutine!['issues-housekeeping'].avgIterationsUsed).toBeUndefined();
-    expect(spend.byRoutine!['issues-housekeeping'].fleetSharePercent).toBe(0);
+    expect(spend.byRoutine['issues-housekeeping']).toBeDefined();
+    expect(spend.byRoutine['issues-housekeeping'].runCount).toBe(1);
+    expect(spend.byRoutine['issues-housekeeping'].inputTokens).toBe(0);
+    expect(spend.byRoutine['issues-housekeeping'].outputTokens).toBe(0);
+    expect(spend.byRoutine['issues-housekeeping'].totalTokens).toBe(0);
+    expect(spend.byRoutine['issues-housekeeping'].avgTokensPerRun).toBe(0);
+    expect(spend.byRoutine['issues-housekeeping'].maxTokensPerRun).toBe(0);
+    expect(spend.byRoutine['issues-housekeeping'].avgIterationsUsed).toBeUndefined();
+    expect(spend.byRoutine['issues-housekeeping'].fleetSharePercent).toBe(0);
 
     // Empty logs test
     const emptySpend = computeTokenSpendFromLogs([], now);

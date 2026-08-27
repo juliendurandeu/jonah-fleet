@@ -59,7 +59,7 @@ export interface TokenSpendInfo {
   sevenDayTotalTokens: number;
   sevenDayEstimatedCost: number;
   recentRunCount: number;
-  byRoutine?: Record<string, RoutineTokenSpend>;
+  byRoutine: Record<string, RoutineTokenSpend>;
 }
 
 export interface RepoFleetStatus {
@@ -116,17 +116,18 @@ export function parseLogMetadata(content: string): LogMetadata | null {
       meta.timestamp = val;
     } else if (key === 'result') {
       meta.result = val;
-    } else if (key === 'input tokens') {
+    } else if (key === 'input tokens' || key === 'input_tokens') {
       const num = parseInt(val.replace(/[^\d]/g, ''), 10);
       if (!isNaN(num)) meta.inputTokens = num;
-    } else if (key === 'output tokens') {
+    } else if (key === 'output tokens' || key === 'output_tokens') {
       const num = parseInt(val.replace(/[^\d]/g, ''), 10);
       if (!isNaN(num)) meta.outputTokens = num;
-    } else if (key === 'estimated cost') {
+    } else if (key === 'estimated cost' || key === 'estimated_cost') {
       const num = parseFloat(val.replace(/[^0-9.]/g, ''));
       if (!isNaN(num)) meta.estimatedCost = num;
-    } else if (key === 'iterations used') {
-      const num = parseInt(val.replace(/[^\d/].*/, '').split('/')[0].trim(), 10);
+    } else if (key === 'iterations used' || key === 'iterations' || key === 'iterations_used') {
+      const raw = val.split('/')[0].trim();
+      const num = parseInt(raw.replace(/[^\d]/g, ''), 10);
       if (!isNaN(num)) meta.iterationsUsed = num;
     } else if (key === 'duration') {
       const num = parseInt(val.replace(/[^\d]/g, ''), 10);
@@ -169,17 +170,17 @@ export function computeTokenSpendFromLogs(logContents: string[], now: number = D
     const logTime = new Date(meta.timestamp).getTime();
     if (isNaN(logTime) || logTime < cutoff) continue;
 
-    totalRuns++;
+    const routineName = meta.routine || 'unknown';
     const input = meta.inputTokens || 0;
     const output = meta.outputTokens || 0;
     const tokens = input + output;
     const cost = meta.estimatedCost || 0;
 
+    totalRuns++;
     totalInputTokens += input;
     totalOutputTokens += output;
     totalCost += cost;
 
-    const routineName = meta.routine || 'unknown';
     if (!routineMap[routineName]) {
       routineMap[routineName] = {
         runCount: 0,
@@ -318,6 +319,7 @@ export async function queryRepoFleetStatus(
       sevenDayTotalTokens: 0,
       sevenDayEstimatedCost: 0,
       recentRunCount: 0,
+      byRoutine: {},
     },
     staleWarnings: [],
   };

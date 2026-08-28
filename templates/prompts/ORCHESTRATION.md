@@ -111,3 +111,16 @@ How token spend, runaway loops, and budget anomalies are detected, triaged, and 
    - **Review Loop Burn**: Pull requests experiencing $\ge 3$ bounce rounds between autowork and peer-review. Trigger: ambiguous reviewer feedback, pedantic non-blocking findings, or brittle test assertions. Remediation: tighten reviewer trust/noise rules, calibrate reviewer severity thresholds, and engage human escalation via ping-pong caps.
 3. **Automated Remediation PRs**: The optimizer automatically drafts targeted PRs—locally for repo-specific rules/configs, or upstream via `npx jonah-fleet contribute` for fleet-wide prompt/workflow improvements.
 
+---
+
+## Autonomous Issue Synthesis
+
+How external and human contributor pull requests are reconciled into the issue tracker without manual friction or reviewer bounces:
+
+1. **Zero-Friction Contribution**: External human contributors often submit PRs directly without opening an issue first. Forcing contributors to open tracking issues or bouncing clean PRs causes friction, review thrash, and abandonment.
+2. **Autonomous Synthesis on Merge**: When `peer-review.md` approves a pull request lacking a `Closes #N` link, the review routine automatically synthesizes a tracking issue before merging:
+   - Creates a tracked issue via `gh issue create` capturing the PR title, body, and deliverables.
+   - Appends `Closes #<synthesized_issue_id>` to the PR description via `gh pr edit`.
+3. **Audit & Single-Flight Lineage**: When the PR is squash-merged, GitHub's native issue closure kicks in and automatically closes the synthesized issue. This maintains 100% issue auditability, project board tracking, telemetry metrics, and release changelogs without imposing any friction on human contributors.
+
+

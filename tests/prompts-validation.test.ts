@@ -80,6 +80,18 @@ describe('Prompt Validation & Invariants', () => {
     expect(content).toContain('Review Loop Burn');
   });
 
+  it('validates peer-review.md and ORCHESTRATION.md define the Autonomous Issue Synthesis protocol', () => {
+    const peerReviewPath = path.join(promptsDir, 'peer-review.md');
+    const orchestrationPath = path.join(templatesDir, 'prompts', 'ORCHESTRATION.md');
+    const peerReviewContent = fs.readFileSync(peerReviewPath, 'utf8');
+    const orchestrationContent = fs.readFileSync(orchestrationPath, 'utf8');
+
+    expect(peerReviewContent).toContain('Autonomous Issue Synthesis');
+    expect(peerReviewContent).toContain('gh issue create');
+    expect(peerReviewContent).toContain('gh pr edit');
+    expect(orchestrationContent).toContain('## Autonomous Issue Synthesis');
+  });
+
   it('ensures prompt templates in templates/prompts are strictly synchronized with .github/prompts', () => {
     const githubPromptsDir = path.resolve(process.cwd(), '.github', 'prompts');
     expect(fs.existsSync(githubPromptsDir)).toBe(true);

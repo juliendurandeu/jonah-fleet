@@ -19,7 +19,7 @@ The run is SUCCESS only if ALL of these are true:
 
 - [ ] Identified the target PR: if one was named in the invocation, reviewed exactly that PR; otherwise listed open PRs and selected one by priority
 - [ ] Ran the code-review pass (`/code-review` and security pass), and posted findings as inline review comments
-- [ ] Took exactly one final action: squash-merged (if PR is good, CI green and present, and linked issue or self-contained PR spec exists) OR posted findings and **converted the PR back to draft** (`gh pr ready <N> --undo`) for author/autowork in-session fixes OR, if round cap reached at round 5 with blocking findings, converted to draft and escalated to human
+- [ ] Took exactly one final action: squash-merged (if PR is good, CI green and present; executed Autonomous Issue Synthesis if unlinked) OR posted findings and **converted the PR back to draft** (`gh pr ready <N> --undo`) for author/autowork in-session fixes OR, if round cap reached at round 5 with blocking findings, converted to draft and escalated to human
 - [ ] If merging: captured deferred non-blocking findings per materiality bar (filed follow-up issues for material ones, batched or dropped immaterial ones)
 - [ ] If in Scan mode and no eligible PRs exist, logged SUCCESS with "No PRs to review"
 
@@ -37,8 +37,8 @@ If any criterion cannot be met, stop immediately and log FAILURE with the reason
 ## Final action: merge or bounce to draft
 
 Every review ends in exactly one of two states:
-- **Merge** — only if PR is good, CI is green and verified on the head commit, and has a linked issue (`Closes #N`) or a clear self-contained PR description for external/contributor PRs.
-  - Sequence: (1) squash-merge, (2) submit held review comments, (3) file follow-up issues for deferred material findings.
+- **Merge** — only if PR is good, CI is green and verified on the head commit. If the PR does not reference a tracked issue (`Closes #N`), execute Autonomous Issue Synthesis prior to merge.
+  - Sequence: (1) if unlinked, synthesize tracking issue (`gh issue create`) and link to PR (`gh pr edit`), (2) squash-merge, (3) submit held review comments, (4) file follow-up issues for deferred material findings.
   - Immaterial findings (style/preference) default to dying in the review thread or getting batched.
   - Mechanical doc fixes (missing changelog line, doc typo in diff) can be committed directly to `main` after squash-merge.
 - **Bounce to draft** — if any **blocking** finding remains (correctness bug, security flaw, failing/missing CI, broken contract):
@@ -92,12 +92,26 @@ Classify each finding:
 - **Blocking**: Broken logic, security hole, data loss, regression, broken tests, missing deliverable from the issue/PR specification.
 - **Non-blocking**: Minor refactor, style preference, performance micro-optimization, missing `Closes #N` on contributor PRs with self-contained descriptions.
 
+### Step 5.5: Autonomous Issue Synthesis (for unlinked PRs)
+
+If the PR is clean and approved for merge, but lacks a `Closes #N` tracking link:
+1. Synthesize a retroactive tracking issue on GitHub:
+   ```bash
+   gh issue create --title "<PR Title>" --body "Tracked retroactively from external pull request #<PR_NUMBER>.\n\n## Deliverables & Context\n<PR Description>\n\n_Synthesized autonomously by Jonah Fleet Peer Review_"
+   ```
+2. Capture the newly created issue number `$ISSUE_NUMBER`.
+3. Edit the PR description to append `Closes #$ISSUE_NUMBER`:
+   ```bash
+   gh pr edit <PR_NUMBER> --body "<PR Description>\n\nCloses #$ISSUE_NUMBER"
+   ```
+
 ### Step 6: Execute Final Action
 
 - **If Blocking findings exist**:
   - If `N < 5`: Post inline comments, submit review as `COMMENT`, and convert PR to draft (`gh pr ready <N> --undo`).
   - If `N >= 5`: Convert PR to draft, post summary comment escalating to repo maintainer, and apply `needs-human` label.
 - **If Clean (or only Non-blocking findings)**:
+  - If PR lacks `Closes #N`, execute Autonomous Issue Synthesis (Step 5.5).
   - Squash-merge the PR: `gh pr merge <N> --squash --delete-branch`.
   - Submit held review comments.
   - File follow-up issues for material non-blocking findings.

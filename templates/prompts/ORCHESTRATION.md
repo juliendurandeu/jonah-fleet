@@ -17,12 +17,12 @@ This project's automation is a GitHub-native implementation of the orchestration
 
 Dispatch is both **scheduled** and **event-driven**. All routines run as ephemeral agent sessions via **Antigravity CLI (`agy`)** powered by **Gemini 3.7 Flash (High reasoning)**. The routine suite is calibrated to operate within a **strict 70% weekly token ceiling across all routines combined**, supervised by `optimizer.md`:
 - **Scheduled cron sweeps**: Autowork runs periodically (`autowork-cron.yml`), complemented by prompt optimization (`prompt-optimizer-cron.yml`), issues housekeeping (`issues-housekeeping-cron.yml`), and dependency security checks (`dependency-check-cron.yml`).
-- **Event-driven triggers**: GitHub Actions workflows fire routines on events so work starts within seconds instead of waiting for scheduled ticks:
-  - `trigger-review-routine.yml` fires Peer Review when a PR is marked ready for review (with debounce on rapid pushes).
+- **Event-driven & manual triggers**: GitHub Actions workflows fire routines on events and interactive commands so work starts within seconds instead of waiting for scheduled ticks:
+  - `trigger-review-routine.yml` fires Peer Review automatically when a PR is marked ready for review, updated, or review is requested (`ready_for_review`, `opened`, `reopened`, `synchronize`, `review_requested`). It can also be manually (re)triggered via `workflow_dispatch` (with optional `pr_number` for Targeted mode or blank for Scan mode) or by commenting `/review`, `/peer-review`, `/retrigger`, or `/re-review` on any open pull request.
   - `trigger-autowork-on-merge.yml` fires Autowork in **Targeted mode** when a PR merges to `main` and unblocks the next unit of chained work.
   - `trigger-autowork-on-bug.yml` fires Autowork when an issue becomes a high-priority bug.
 
-Both autowork triggers pass the target issue via environment variables (`ISSUE_NUMBER`, `ISSUE_URL`), putting autowork.md into **Targeted mode** (working the named issue ahead of Phase 1 convergence). Single-flight per issue is strictly enforced across both scheduled and event-driven runs.
+Both autowork triggers pass the target issue via environment variables (`ISSUE_NUMBER`, `ISSUE_URL`), putting autowork.md into **Targeted mode** (working the named issue ahead of Phase 1 convergence). Single-flight per issue is strictly enforced across scheduled, event-driven, and manually triggered runs.
 
 Invariants deliberately upheld from this spec:
 

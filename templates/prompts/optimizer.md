@@ -58,6 +58,7 @@ If any criterion cannot be met, stop immediately and log FAILURE with the reason
    - **Budget Hog**: A single agent routine consumes >75% of total fleet token allowance.
    - **Iteration Ceiling Exhaustion**: >20% of runs in a routine terminate at the `token_limit` / max iteration cap.
    - **Review Loop Burn**: Pull requests experiencing >= 3 bounce rounds between autowork and peer-review over unresolved or recurring findings.
+   - **Feedback Loop Stagnation**: A downstream processing routine (e.g. impact measurement, verification, or triage) records 0 intake (`filed: 0` or 0 new items processed) across $\ge 2$ consecutive runs while upstream PRs merge or roadmap/feature issues close in the same window. Flags that discovery sweeps have stalled or become overly coarse.
 6. **Analyze resolved bugs & review comments**: Examine closed bug issues, merged bug-fix PRs, and review feedback for missing checks in authoring (`autowork.md`) or review (`peer-review.md`).
 
 ### 2. Formulate preventative improvements
@@ -67,6 +68,7 @@ Translate findings into concrete preventative improvements and remediation trigg
 - **Early Exit & Candidate Skip**: For Budget Hog and runaway sweeps, add early termination guards, candidate pre-qualification filters, and infeasible evaluation caps.
 - **Iteration Ceiling & Self-Audit Tuning**: For Iteration Ceiling Exhaustion, adjust max iteration bounds or tighten pre-ready self-audits in `autowork.md` to catch defects before review cycles start.
 - **Ping-Pong Convergence**: For Review Loop Burn, tighten reviewer trust & noise filtering, enforce clean-merge gates, and apply ping-pong caps to prevent endless bounce cycles.
+- **Loop Discovery Mechanical Audits**: For Feedback Loop Stagnation, tighten discovery sweeps by mandating deterministic per-issue matching tables and itemized reconciliation against upstream closed issues/PRs rather than allowing un-itemized generic summary assertions.
 - **Verification & Invariant Tests**: Add automated test cases in `tests/` verifying prompt invariant preservation and schema conformity.
 
 ### 3. Open Fix PR (Local or Upstream Bridge)

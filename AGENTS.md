@@ -11,7 +11,7 @@
 - **Bundler**: `tsup` (generating ESM bundle and TypeScript declarations in `dist/`)
 - **Testing**: Vitest (`vitest`) for unit tests, drift checks, and prompt invariant validations
 - **Package Manager**: npm (lockfile committed)
-- **CI / CD**: GitHub Actions with native OIDC npm Trusted Publishing
+- **CI / CD**: GitHub Actions with Google Release Please and native OIDC npm Trusted Publishing
 
 ## Development Workflows
 

@@ -95,6 +95,32 @@ describe('Prompt Validation & Invariants', () => {
     expect(orchestrationContent).toContain('## Autonomous Issue Synthesis');
   });
 
+  it('validates trigger-review-routine.yml supports workflow_dispatch, issue_comment, and review_requested triggers', () => {
+    const workflowPath = path.join(templatesDir, 'workflows', 'trigger-review-routine.yml');
+    const content = fs.readFileSync(workflowPath, 'utf8');
+
+    expect(content).toContain('workflow_dispatch:');
+    expect(content).toContain('pr_number:');
+    expect(content).toContain('issue_comment:');
+    expect(content).toContain('review_requested');
+    expect(content).toContain('/review');
+    expect(content).toContain('/peer-review');
+    expect(content).toContain('/retrigger');
+    expect(content).toContain('/re-review');
+    expect(content).toMatch(/github\.event_name == 'workflow_dispatch'/);
+    expect(content).toMatch(/github\.event_name == 'issue_comment'/);
+  });
+
+  it('validates ORCHESTRATION.md documents manual and comment triggers for peer review', () => {
+    const orchestrationPath = path.join(templatesDir, 'prompts', 'ORCHESTRATION.md');
+    const content = fs.readFileSync(orchestrationPath, 'utf8');
+
+    expect(content).toContain('trigger-review-routine.yml');
+    expect(content).toContain('workflow_dispatch');
+    expect(content).toContain('/review');
+    expect(content).toContain('/peer-review');
+  });
+
   it('ensures prompt templates in templates/prompts are strictly synchronized with .github/prompts', () => {
     const githubPromptsDir = path.resolve(process.cwd(), '.github', 'prompts');
     expect(fs.existsSync(githubPromptsDir)).toBe(true);
@@ -102,6 +128,22 @@ describe('Prompt Validation & Invariants', () => {
     for (const filename of fs.readdirSync(promptsDir)) {
       const templatePath = path.join(promptsDir, filename);
       const githubPath = path.join(githubPromptsDir, filename);
+      if (fs.existsSync(githubPath)) {
+        const templateContent = fs.readFileSync(templatePath, 'utf8');
+        const githubContent = fs.readFileSync(githubPath, 'utf8');
+        expect(githubContent).toBe(templateContent);
+      }
+    }
+  });
+
+  it('ensures workflow templates in templates/workflows are strictly synchronized with .github/workflows', () => {
+    const workflowsDir = path.join(templatesDir, 'workflows');
+    const githubWorkflowsDir = path.resolve(process.cwd(), '.github', 'workflows');
+    expect(fs.existsSync(githubWorkflowsDir)).toBe(true);
+
+    for (const filename of fs.readdirSync(workflowsDir)) {
+      const templatePath = path.join(workflowsDir, filename);
+      const githubPath = path.join(githubWorkflowsDir, filename);
       if (fs.existsSync(githubPath)) {
         const templateContent = fs.readFileSync(templatePath, 'utf8');
         const githubContent = fs.readFileSync(githubPath, 'utf8');

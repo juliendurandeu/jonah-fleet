@@ -27,6 +27,14 @@
   ],
   "author": "Julien Durandeu",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/juliendurandeu/jonah-fleet.git"
+  },
+  "homepage": "https://github.com/juliendurandeu/jonah-fleet#readme",
+  "bugs": {
+    "url": "https://github.com/juliendurandeu/jonah-fleet/issues"
+  },
   "dependencies": {
     "commander": "^12.1.0",
     "picocolors": "^1.1.1"

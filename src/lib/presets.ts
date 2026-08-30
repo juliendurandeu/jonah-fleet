@@ -91,5 +91,5 @@ export const ROUTINE_TO_WORKFLOW_MAP: Record<keyof FleetManifest['routines'], st
   'product-planning': [],
 };
 
-export const FLEET_VERSION = '1.1.0';
+export const FLEET_VERSION = '1.2.0';
 export const SCHEMA_URL = 'https://raw.githubusercontent.com/juliendurandeu/jonah-fleet/main/schema.json';

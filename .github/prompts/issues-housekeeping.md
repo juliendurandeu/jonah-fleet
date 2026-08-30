@@ -40,10 +40,11 @@ If any criterion cannot be met, stop immediately and log FAILURE with the reason
 4. **Duplicate & consolidation check**: Identify duplicate issues; close duplicates with cross-references. Consolidate small, related micro-tasks into batch issues.
 5. **Premise-obsolete & stale check**: If an issue's premise was resolved by already-merged PRs or recent refactors, close as completed with evidence.
 6. **Label audit**: Ensure open issues carry standard role labels (`needs-triage`, `ready-for-agent`, `needs-human`, etc.). Use `/triage` if classifying incoming issues.
+7. **Closed-loop verification check**: For projects running impact or verification loops, audit recently closed roadmap/feature issues against tracking issues to ensure shipped levers do not remain untracked.
 
 ### Phase 3: Summary
 
-7. Post a summary comment or log recording all actions taken (priority shifts, closed duplicates, released claims, landed log PRs).
+8. Post a summary comment or log recording all actions taken (priority shifts, closed duplicates, released claims, landed log PRs).
 
 ## Logging
 

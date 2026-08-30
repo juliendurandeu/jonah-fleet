@@ -28,6 +28,7 @@ describe('Fleet Installer & Drift Detection', () => {
 
     expect(fs.existsSync(path.join(tempDir, '.github/prompts/autowork.md'))).toBe(true);
     expect(fs.existsSync(path.join(tempDir, '.github/workflows/autowork-cron.yml'))).toBe(true);
+    expect(fs.existsSync(path.join(tempDir, '.github/workflows/trigger-autowork-manual.yml'))).toBe(true);
     expect(fs.existsSync(path.join(tempDir, '.agents/skills/tdd/SKILL.md'))).toBe(true);
     expect(fs.existsSync(path.join(tempDir, 'AGENTS.md'))).toBe(true);
 

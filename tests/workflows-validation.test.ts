@@ -50,4 +50,16 @@ describe('Workflow Validation & Invariants', () => {
     expect(agentsTemplate).toContain('actions/workflows/trigger-autowork-manual.yml');
     expect(orchestrationDoc).toContain('trigger-autowork-manual.yml');
   });
+
+  it('verifies trigger-review-routine.yml includes periodic scan sweep and failure notification handler', () => {
+    const workflowPath = path.join(workflowsDir, 'trigger-review-routine.yml');
+    const content = fs.readFileSync(workflowPath, 'utf8');
+
+    expect(content).toContain('schedule:');
+    expect(content).toContain('cron:');
+    expect(content).toContain("github.event_name == 'schedule'");
+    expect(content).toContain('Handle Review Failure & PR Notification');
+    expect(content).toContain('if: failure()');
+    expect(content).toContain('Peer Review Routine Notice');
+  });
 });

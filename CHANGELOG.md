@@ -27,6 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Smart Tech-Stack Auto-Detection for `jonah-fleet init` (`src/lib/detector.ts`): inspects repository files to detect languages (TypeScript, JavaScript, Python, Go, Rust), frameworks (Next.js, React, Remix, Astro, Vue, Nuxt, SvelteKit, Express, Fastify, NestJS, Koa, Hono, FastAPI, Django, Flask, Gin, Echo, Chi, Fiber, Axum, Actix Web, Rocket), package managers (npm, pnpm, yarn, bun, pip, uv, poetry, pipenv, go, cargo), linters, test runners, and auto-populates tailored build, test, and type-check commands into `AGENTS.md` (#4).
+- CLI flag overrides (`--stack`, `--package-manager`, `--test-cmd`, `--build-cmd`, `--interactive`, `--no-interactive`) on `jonah-fleet init` for customized initialization.
 - Inward Blocker Dependency Gating in `autowork.md` (`templates/prompts/autowork.md` and `.github/prompts/autowork.md`): automatically detects and gates issues carrying `Blocked by #N` / `Depends on #N` until prerequisite issues merge, preventing premature execution of dependent tasks.
 - Standard `NOTICE` attribution file formally crediting OpenAI Symphony's architectural lineage under Apache-2.0.
 - Automated Upstream Symphony Radar GitHub Actions workflow (`.github/workflows/symphony-radar.yml` and `.github/scripts/fetch-symphony-radar.js`) for periodic detection and issue reporting of specification updates in `openai/symphony`.

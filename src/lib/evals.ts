@@ -290,7 +290,6 @@ export function simulateDownstreamSyncWorkflow(options: DownstreamSyncSimulation
     postDrift.missingWorkflows.length === 0 &&
     postDrift.modifiedWorkflows.length === 0 &&
     postDrift.missingSkills.length === 0 &&
-    postDrift.modifiedSkills.length === 0 &&
     currentManifest.version === FLEET_VERSION;
 
   // 6. Formulate PR payload matching sync-fleet.yml

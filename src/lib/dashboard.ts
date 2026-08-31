@@ -134,11 +134,22 @@ export function renderFleetDashboard(statuses: RepoFleetStatus[], options: Dashb
       ` | Open PRs: ${pc.bold(summary.openPRsCount.toString())} ` +
       pc.gray(`(${summary.draftPRsCount} draft, ${summary.readyPRsCount} ready)`)
   );
+  const CEILING_70_PERCENT = 8_750_000;
+  const ceilingPct = (summary.totalTokens7d / CEILING_70_PERCENT) * 100;
+  let budgetTag = pc.green('[HEALTHY]');
+  if (ceilingPct > 100) budgetTag = pc.red(pc.bold('[EXCEEDED]'));
+  else if (ceilingPct >= 90) budgetTag = pc.red(pc.bold('[CRITICAL]'));
+  else if (ceilingPct >= 70) budgetTag = pc.yellow('[WARNING]');
+
   lines.push(
     `   7-Day Spend:   ${pc.bold(formatTokens(summary.totalTokens7d))} tokens ` +
       pc.gray(`(in: ${formatTokens(summary.totalInputTokens7d)}, out: ${formatTokens(summary.totalOutputTokens7d)})`) +
       ` | Est. Cost: ${pc.bold(pc.green(formatCurrency(summary.totalEstimatedCost7d)))} ` +
       `across ${pc.bold(summary.totalRuns7d.toString())} runs`
+  );
+  lines.push(
+    `   Weekly Budget: ${pc.bold(formatTokens(summary.totalTokens7d))} / ${formatTokens(CEILING_70_PERCENT)} tokens ` +
+      `(${ceilingPct.toFixed(1)}% of 70% ceiling) ${budgetTag}`
   );
 
   if (summary.byRoutine && Object.keys(summary.byRoutine).length > 0 && (options.tokens || options.detailed || statuses.length > 1)) {
@@ -154,7 +165,6 @@ export function renderFleetDashboard(statuses: RepoFleetStatus[], options: Dashb
       );
     }
   }
-
   lines.push(pc.bold('══════════════════════════════════════════════════════════════════\n'));
 
   return lines.join('\n');

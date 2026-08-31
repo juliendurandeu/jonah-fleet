@@ -136,6 +136,20 @@ jobs:
             cat "$LATEST_LOG" >> "$GITHUB_STEP_SUMMARY"
           fi
 
+      - name: Emit Fleet Telemetry (Opt-in)
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT || github.token }}
+          TELEMETRY_ENDPOINT: ${{ secrets.JONAH_FLEET_TELEMETRY_ENDPOINT }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          LATEST_LOG=$(ls -t .github/prompts/logs/autowork/*.md 2>/dev/null | head -n 1)
+          if [ -n "$LATEST_LOG" ] && [ -f "$LATEST_LOG" ]; then
+            npx --yes jonah-fleet telemetry --emit --log "$LATEST_LOG" --endpoint "$TELEMETRY_ENDPOINT" || true
+          fi
+
       - name: Verify Atomic Handoff Invariant (PR Existence Guard)
         if: always()
         env:

@@ -125,4 +125,16 @@ How external and human contributor pull requests are reconciled into the issue t
    - Appends `Closes #<synthesized_issue_id>` to the PR description via `gh pr edit`.
 3. **Audit & Single-Flight Lineage**: When the PR is squash-merged, GitHub's native issue closure kicks in and automatically closes the synthesized issue. This maintains 100% issue auditability, project board tracking, telemetry metrics, and release changelogs without imposing any friction on human contributors.
 
+---
 
+## Fleet Telemetry & Weekly Token Economics
+
+Cross-repository telemetry aggregation and token tracking protocol:
+1. **Lightweight Routine Telemetry**: Every autonomous routine log (`.github/prompts/logs/*/*.md`) emits a structured `RoutineTelemetrySummary` capturing routine identity, duration, iterations, result, failure category, cost, and tokens.
+2. **Opt-in Emission Step**: GitHub Actions workflows (`autowork-cron.yml`, `trigger-review-routine.yml`, `prompt-optimizer-cron.yml`) run `jonah-fleet telemetry --emit` using optional `JONAH_FLEET_TELEMETRY_ENDPOINT` secrets.
+3. **Global 70% Budget Ceiling**: Tracks rolling 7-day spend across all fleet repositories against the global ceiling (~8.75M tokens/week).
+4. **Health Thresholds**:
+   - `[HEALTHY]`: < 70% of weekly budget ceiling.
+   - `[WARNING]`: 70% – 90% of weekly budget ceiling.
+   - `[CRITICAL]`: 90% – 100% of weekly budget ceiling.
+   - `[EXCEEDED]`: > 100% of weekly budget ceiling.

@@ -164,7 +164,7 @@ export function detectTechStack(projectDir: string): DetectedStack {
 
     let devCmd = `${pmPrefix}python main.py`;
     if (framework === 'FastAPI') {
-      devCmd = packageManager === 'uv' ? 'uv run fastapi dev' : 'fastapi dev';
+      devCmd = `${pmPrefix}fastapi dev`;
     } else if (framework === 'Django') {
       devCmd = `${pmPrefix}python manage.py runserver`;
     } else if (framework === 'Flask') {
@@ -376,27 +376,27 @@ export function renderAgentsTemplate(templateContent: string, stack: DetectedSta
 
   rendered = rendered.replace(
     /- \*\*Framework \/ Language\*\*:.*/,
-    `- **Framework / Language**: ${frameworkLanguage}`
+    () => `- **Framework / Language**: ${frameworkLanguage}`
   );
 
   if (stack.packageManager) {
     rendered = rendered.replace(
       /- \*\*Package Manager\*\*:.*/,
-      `- **Package Manager**: ${stack.packageManager}`
+      () => `- **Package Manager**: ${stack.packageManager}`
     );
   }
 
   if (stack.testFramework) {
     rendered = rendered.replace(
       /- \*\*Testing\*\*:.*/,
-      `- **Testing**: ${stack.testFramework}`
+      () => `- **Testing**: ${stack.testFramework}`
     );
   }
 
   if (stack.styling) {
     rendered = rendered.replace(
       /- \*\*Styling \/ UI\*\*:.*/,
-      `- **Styling / UI**: ${stack.styling}`
+      () => `- **Styling / UI**: ${stack.styling}`
     );
   }
 
@@ -423,7 +423,7 @@ export function renderAgentsTemplate(templateContent: string, stack: DetectedSta
 
   if (workflowLines.length > 0) {
     const workflowsBlock = `\`\`\`bash\n${workflowLines.join('\n')}\n\`\`\``;
-    rendered = rendered.replace(/```bash[\s\S]*?```/, workflowsBlock);
+    rendered = rendered.replace(/```bash[\s\S]*?```/, () => workflowsBlock);
   }
 
   return rendered;

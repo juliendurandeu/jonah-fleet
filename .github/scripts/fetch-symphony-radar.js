@@ -44,7 +44,7 @@ async function run() {
   const recentReleases = (releases || []).filter(r => new Date(r.published_at || r.created_at) >= cutoffDate);
   const recentPRs = (pullRequests || []).filter(p => p.merged_at && new Date(p.merged_at) >= cutoffDate);
 
-  const hasNewActivity = recentCommits.length > 0 || recentReleases.length > 0 || recentPRs.length > 0;
+  const hasNewActivity = recentCommits.length > 0 || recentSpecCommits.length > 0 || recentReleases.length > 0 || recentPRs.length > 0;
   const shouldCreateIssue = hasNewActivity || FORCE_REPORT;
 
   const todayStr = new Date().toISOString().split('T')[0];

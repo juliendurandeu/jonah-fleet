@@ -12,6 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Upstream contribution CLI test suite with mock executor and dry-run support (`tests/contribute.test.ts`).
 - Downstream synchronization workflow and drift scenario test suite (`tests/sync-workflow.test.ts`).
 - Dedicated `evals` CI workflow job in `.github/workflows/ci.yml` and `test:evals` npm script.
+- Centralized cross-repo telemetry aggregation and token tracking hub (`jonah-fleet telemetry`).
+- Routine telemetry JSON schema and parser (`RoutineTelemetrySummary`) supporting failure categories, duration, iterations, cost, and tokens.
+- Global 70% weekly token budget ceiling tracking (~8.75M tokens/week) with utilization percentage, daily burn rates, and health badges (`[HEALTHY]`, `[WARNING]`, `[CRITICAL]`, `[EXCEEDED]`).
+- Opt-in telemetry emission step in `autowork-cron.yml`, `trigger-review-routine.yml`, and `prompt-optimizer-cron.yml`.
+- `telemetry` configuration block in `schema.json` and `agents-manifest.json`.
 - Dedicated `trigger-autowork-manual.yml` workflow template for targeted on-demand Autowork runs via `workflow_dispatch` and issue badge links.
 - Badge link format documentation in `templates/docs/AGENTS.template.md` and repository `AGENTS.md`.
 - Default GitHub Issue Templates in `.github/ISSUE_TEMPLATE/` (`feature_request.md` and `bug_report.md`) embedding the Targeted Autowork badge link.

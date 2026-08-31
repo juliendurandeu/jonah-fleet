@@ -45,7 +45,6 @@ export interface DownstreamSyncSimulationOptions {
   initialPreset?: 'minimal' | 'standard' | 'full';
   initialVersion?: string;
   modifiedPrompts?: Record<string, string>;
-  deletedFiles?: string[];
 }
 
 export interface DownstreamSyncSimulationResult {
@@ -267,15 +266,6 @@ export function simulateDownstreamSyncWorkflow(options: DownstreamSyncSimulation
     }
   }
 
-  if (options.deletedFiles) {
-    for (const relPath of options.deletedFiles) {
-      const filePath = path.join(targetDir, relPath);
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-      }
-    }
-  }
-
   // 3. Detect drift prior to sync
   const currentManifest = loadManifest(targetDir) || manifest;
   const driftDetails = checkDrift(targetDir, currentManifest);
@@ -298,7 +288,9 @@ export function simulateDownstreamSyncWorkflow(options: DownstreamSyncSimulation
     postDrift.missingPrompts.length === 0 &&
     postDrift.modifiedPrompts.length === 0 &&
     postDrift.missingWorkflows.length === 0 &&
+    postDrift.modifiedWorkflows.length === 0 &&
     postDrift.missingSkills.length === 0 &&
+    postDrift.modifiedSkills.length === 0 &&
     currentManifest.version === FLEET_VERSION;
 
   // 6. Formulate PR payload matching sync-fleet.yml

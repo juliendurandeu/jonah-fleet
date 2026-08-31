@@ -4,6 +4,7 @@ import { runSync } from './commands/sync.js';
 import { runStatus } from './commands/status.js';
 import { runMonitor } from './commands/monitor.js';
 import { runContribute } from './commands/contribute.js';
+import { runTelemetry } from './commands/telemetry.js';
 import { FLEET_VERSION } from './lib/presets.js';
 
 const program = new Command();
@@ -67,6 +68,19 @@ program
   .option('-d, --dry-run', 'Preview contribution branch and PR command without executing', false)
   .action(async (options) => {
     await runContribute(options);
+  });
+
+program
+  .command('telemetry [repos...]')
+  .description('Aggregate and report fleet-wide telemetry, review loop metrics, failure categories, and weekly token spend')
+  .option('-l, --log <path>', 'Path to markdown log file to emit')
+  .option('-e, --endpoint <url>', 'Collector endpoint URL for telemetry emission')
+  .option('-b, --budget <tokens>', 'Weekly token budget ceiling (~8.75M default)')
+  .option('-j, --json', 'Output telemetry summary as JSON', false)
+  .option('--emit', 'Emit telemetry event for specified or latest run log')
+  .action(async (repos, options) => {
+    const action = options.emit ? 'emit' : 'aggregate';
+    await runTelemetry({ ...options, repos, action });
   });
 
 program.parse(process.argv);

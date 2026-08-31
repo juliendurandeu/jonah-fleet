@@ -124,6 +124,7 @@ describe('Fleet Dashboard Renderer', () => {
     expect(output).toContain('• autowork:');
     expect(output).toContain('• peer-review:');
     expect(output).toContain('75.5%');
+    expect(output).toContain('Weekly Budget');
     expect(output).toContain('⚠️  STALE CLAIM');
     expect(output).toContain('Fleet Summary');
   });

@@ -27,6 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Inward Blocker Dependency Gating in `autowork.md` (`templates/prompts/autowork.md` and `.github/prompts/autowork.md`): automatically detects and gates issues carrying `Blocked by #N` / `Depends on #N` until prerequisite issues merge, preventing premature execution of dependent tasks.
+- Standard `NOTICE` attribution file formally crediting OpenAI Symphony's architectural lineage under Apache-2.0.
+- Automated Upstream Symphony Radar GitHub Actions workflow (`.github/workflows/symphony-radar.yml` and `.github/scripts/fetch-symphony-radar.js`) for periodic detection and issue reporting of specification updates in `openai/symphony`.
+- Explicit Acknowledgments & Credits section in `README.md`.
 - Review failure notification handler and 2-hour scheduled scan sweep watchdog in `trigger-review-routine.yml` to prevent stuck PRs and recover orphaned ready PRs.
 - Orphaned ready PR watchdog in `autowork.md` (Step 3c) and Scan mode unreviewed prioritization in `peer-review.md`.
 - Peer Review Resilience & Orphaned PR Recovery protocol documentation in `ORCHESTRATION.md`.
@@ -44,6 +48,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Default GitHub Issue Templates in `.github/ISSUE_TEMPLATE/` (`feature_request.md` and `bug_report.md`) embedding the Targeted Autowork badge link.
 - `trigger-autowork-manual.yml` added to `ROUTINE_TO_WORKFLOW_MAP.autowork` for automatic installation and drift detection.
 - Alias support for `issue_number` in `autowork-cron.yml` `workflow_dispatch` trigger.
+- Explicit `token: ${{ secrets.GH_PAT || github.token }}` parameter in `release-please.yml` ensuring automated release PRs are authored with maintainer permissions to prevent workflow approval blocks.
+- Release PR branch exclusion (`release-please--*`) in `trigger-review-routine.yml` workflow triggers, guard skip step, and `peer-review.md` prompt routines.
 - Unit and drift tests in `tests/workflows-validation.test.ts` and `tests/installer.test.ts`.
 
 ## [1.2.0] - 2026-08-30

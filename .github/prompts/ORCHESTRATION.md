@@ -149,3 +149,20 @@ How the fleet guarantees continuous review throughput, recovers from transient A
 2. **Periodic Scan Sweep (Watchdog)**: `trigger-review-routine.yml` runs a scheduled 2-hour cron sweep (`cron: '45 */2 * * *'`) in Scan mode. Any open PR in `ready_for_review` state that was orphaned due to a transient API rate limit or missed event trigger is automatically picked up, evaluated, and resolved.
 3. **Interactive Re-triggering**: Any team member or author can immediately re-dispatch review by commenting `/review`, `/peer-review`, `/retrigger`, or `/re-review` on any open pull request, or manually triggering `trigger-review-routine.yml` via `workflow_dispatch`.
 4. **Autowork Phase 1 Watchdog**: During Phase 1 convergence, Autowork actively identifies open ready PRs that have received no review feedback for $>2$ hours, re-triggering review via draft toggle or `/review` comment before picking up new work.
+
+---
+
+## Upstream Symphony Intel & Architectural Evaluation Framework
+
+How changes and innovations from [openai/symphony](https://github.com/openai/symphony) are systematically audited and evaluated for incorporation into Jonah Fleet:
+
+1. **Automated Radar (`symphony-radar.yml`)**: A weekly scheduled workflow runs `.github/scripts/fetch-symphony-radar.js` to inspect upstream commits, specification updates (`SPEC.md`), and releases, generating an actionable digest issue in Jonah Fleet.
+2. **The 4 Evaluation Layers**:
+   - **Layer 1 (Zero-Daemon Invariant)**: Can the enhancement execute in ephemeral GitHub Actions and `agy` CLI sessions without requiring a 24/7 background server or persistent WebSocket?
+   - **Layer 2 (Issue Tracker Abstraction)**: Does the pattern map cleanly to native GitHub Issues, labels, and PR checks without proprietary tracker dependencies?
+   - **Layer 3 (Token & Cost Economy)**: Does the change optimize LLM spend within Jonah Fleet's 70% weekly token ceiling (~8.75M tokens)?
+   - **Layer 4 (Multi-Repo Portability)**: Can the routine or skill be distributed via `agents-manifest.json` and `jonah-fleet sync` across any consumer repository?
+3. **Classification & Action Protocol**:
+   - **🟢 Category A (Adopt Directly)**: Security guardrails, claim lock invariants, reader/writer rules, prompt engineering optimizations.
+   - **🟡 Category B (Adapt to Actions/CLI)**: Dynamic orchestrator pacing, backpressure controls, multi-stage review checks.
+   - **🔴 Category C (Skip)**: Elixir/OTP supervision trees, BEAM memory tuning, proprietary runtime internals.

@@ -57,7 +57,7 @@ Check if `$ISSUE_NUMBER` environment variable is set (or scan invocation text fo
 
 ### Step 0.5: Targeted mode — work the target issue first (only when Step 0 found one)
 
-a. **Read the target issue and check eligibility.** Eligible = open, unassigned or reclaimable stale claim, no open PR (`Closes #N`), and not carrying `needs-human` or `needs-design`.
+a. **Read the target issue and check eligibility.** Eligible = open, unassigned or reclaimable stale claim, no open PR (`Closes #N`), no unclosed inward blocking dependencies (`Blocked by #N` or `Depends on #N` where `#N` is open), and not carrying `needs-human` or `needs-design`.
    - **Ineligible** → fall back to Phase 1 and run the normal Scan flow.
 b. **Eligible → claim, then implement.** Call `get_me` once to learn your own login (step 7), reclaim stale claim if applicable (step 10a), run Claim protocol (step 11), evaluate and implement per steps 12–13, open draft PR, and run in-session review wait (step 15).
 
@@ -82,7 +82,7 @@ b. **Eligible → claim, then implement.** Call `get_me` once to learn your own 
 
 6. Count open PRs authored by automated sessions representing live reviewable work (excluding log-only PRs). If 3 or more non-log PRs are open, STOP — run is SUCCESS with "Too many open PRs, converging first".
 7. Call `get_me` once to learn your own GitHub account (`login`).
-8. List open issues sorted by priority labels (P1 > P2 > P3). Within the same priority tier, order by type (`bug`/`security` before others), then oldest first. Skip assigned issues (unless stale claim per `ORCHESTRATION.md`), issues with open PRs, issues labeled `needs-human` or `needs-design`, and issues under cross-run cooldown.
+8. List open issues sorted by priority labels (P1 > P2 > P3). Within the same priority tier, order by type (`bug`/`security` before others), then oldest first. Skip assigned issues (unless stale claim per `ORCHESTRATION.md`), issues with open PRs, issues with unclosed blocking dependencies (`Blocked by #N` / `Depends on #N`), issues labeled `needs-human` or `needs-design`, and issues under cross-run cooldown.
 9. If no eligible candidate exists, STOP — run is SUCCESS with "No unclaimed work available".
 10. If the candidate should be closed already (work done, PRs merged), close it and return to step 8.
 10a. **Stale-claim reclamation:** If candidate is a stale claim per `ORCHESTRATION.md`, re-read immediately before writing, unassign the dead owner, post reclamation comment, and proceed to claim.

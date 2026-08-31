@@ -36,6 +36,7 @@ describe('Release Configuration & Manifests', () => {
 
     const workflowContent = fs.readFileSync(workflowPath, 'utf8');
     expect(workflowContent).toContain('google-github-actions/release-please-action');
+    expect(workflowContent).toContain('token: ${{ secrets.GH_PAT || github.token }}');
     expect(workflowContent).toContain('id-token: write');
     expect(workflowContent).toContain('contents: write');
     expect(workflowContent).toContain('pull-requests: write');

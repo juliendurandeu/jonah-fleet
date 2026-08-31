@@ -58,8 +58,45 @@ describe('Workflow Validation & Invariants', () => {
     expect(content).toContain('schedule:');
     expect(content).toContain('cron:');
     expect(content).toContain("github.event_name == 'schedule'");
+    expect(content).toContain("!startsWith(github.event.pull_request.head.ref, 'release-please--')");
+    expect(content).toContain('release-please--*');
     expect(content).toContain('Handle Review Failure & PR Notification');
     expect(content).toContain('if: failure()');
     expect(content).toContain('Peer Review Routine Notice');
+  });
+
+  it('validates Upstream Symphony Radar workflow and evaluation matrix script', () => {
+    const radarWorkflowPath = path.join(process.cwd(), '.github/workflows/symphony-radar.yml');
+    expect(fs.existsSync(radarWorkflowPath)).toBe(true);
+    const workflowContent = fs.readFileSync(radarWorkflowPath, 'utf8');
+    expect(workflowContent).toContain('Upstream Symphony Radar');
+    expect(workflowContent).toContain('schedule:');
+    expect(workflowContent).toContain('workflow_dispatch:');
+    expect(workflowContent).toContain('issues: write');
+
+    const radarScriptPath = path.join(process.cwd(), '.github/scripts/fetch-symphony-radar.js');
+    expect(fs.existsSync(radarScriptPath)).toBe(true);
+    const scriptContent = fs.readFileSync(radarScriptPath, 'utf8');
+    expect(scriptContent).toContain('Upstream Architectural Evaluation Matrix');
+    expect(scriptContent).toContain('Zero-Daemon Invariant');
+    expect(scriptContent).toContain('Issue Tracker Abstraction');
+    expect(scriptContent).toContain('Token & Cost Economy');
+    expect(scriptContent).toContain('Multi-Repo Portability');
+    expect(scriptContent).toContain('Category A');
+    expect(scriptContent).toContain('Category B');
+    expect(scriptContent).toContain('Category C');
+  });
+
+  it('validates NOTICE file and Symphony attribution in documentation', () => {
+    const noticePath = path.join(process.cwd(), 'NOTICE');
+    expect(fs.existsSync(noticePath)).toBe(true);
+    const noticeContent = fs.readFileSync(noticePath, 'utf8');
+    expect(noticeContent).toContain('OpenAI Symphony');
+    expect(noticeContent).toContain('Apache License, Version 2.0');
+    expect(noticeContent).toContain('Single-flight issue claiming');
+
+    const orchestrationDoc = fs.readFileSync(path.join(templatesDir, 'prompts/ORCHESTRATION.md'), 'utf8');
+    expect(orchestrationDoc).toContain('Upstream Symphony Intel & Architectural Evaluation Framework');
+    expect(orchestrationDoc).toContain('Layer 1 (Zero-Daemon Invariant)');
   });
 });

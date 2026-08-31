@@ -26,6 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Resolved Critical (GHSA-5xrq-8626-4rwp), High (GHSA-fx2h-pf6j-xcff), and Moderate security vulnerabilities in `vitest` and transitive dependencies (`vite`, `esbuild`, `vite-node`, `@vitest/mocker`) by upgrading `vitest` to `^4.1.11` and overriding `esbuild` to `^0.28.2` (#38).
+
 ### Added
 - Smart Tech-Stack Auto-Detection for `jonah-fleet init` (`src/lib/detector.ts`): inspects repository files to detect languages (TypeScript, JavaScript, Python, Go, Rust), frameworks (Next.js, React, Remix, Astro, Vue, Nuxt, SvelteKit, Express, Fastify, NestJS, Koa, Hono, FastAPI, Django, Flask, Gin, Echo, Chi, Fiber, Axum, Actix Web, Rocket), package managers (npm, pnpm, yarn, bun, pip, uv, poetry, pipenv, go, cargo), linters, test runners, and auto-populates tailored build, test, and type-check commands into `AGENTS.md` (#4).
 - CLI flag overrides (`--stack`, `--package-manager`, `--test-cmd`, `--build-cmd`, `--interactive`, `--no-interactive`) on `jonah-fleet init` for customized initialization.

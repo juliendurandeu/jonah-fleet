@@ -12,6 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Upstream contribution CLI test suite with mock executor and dry-run support (`tests/contribute.test.ts`).
 - Downstream synchronization workflow and drift scenario test suite (`tests/sync-workflow.test.ts`).
 - Dedicated `evals` CI workflow job in `.github/workflows/ci.yml` and `test:evals` npm script.
+- Dedicated `trigger-autowork-manual.yml` workflow template for targeted on-demand Autowork runs via `workflow_dispatch` and issue badge links.
+- Badge link format documentation in `templates/docs/AGENTS.template.md` and repository `AGENTS.md`.
+- Default GitHub Issue Templates in `.github/ISSUE_TEMPLATE/` (`feature_request.md` and `bug_report.md`) embedding the Targeted Autowork badge link.
+- `trigger-autowork-manual.yml` added to `ROUTINE_TO_WORKFLOW_MAP.autowork` for automatic installation and drift detection.
+- Alias support for `issue_number` in `autowork-cron.yml` `workflow_dispatch` trigger.
+- Unit and drift tests in `tests/workflows-validation.test.ts` and `tests/installer.test.ts`.
 
 ## [1.2.0] - 2026-08-30
 
@@ -35,6 +41,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Per-routine token, cost, and iteration aggregation in `src/lib/fleet-query.ts` (`RoutineTokenSpend` and `TokenSpendInfo.byRoutine`).
 - Support for extracting `iterationsUsed` and `duration` in `parseLogMetadata()`.
 - Extended test coverage in `tests/fleet-query.test.ts` for per-routine token stats, fleet share calculation, and parsing edge cases.
+
+## [1.1.1] - 2026-08-26
+
+### Added
+- Explicit OpenAI Symphony specification lineage documentation and conceptual mapping table.
+- Architectural comparison matrix contrasting Jonah Fleet's zero-daemon GitHub-native model against persistent multi-agent runtimes (SwarmClaw).
+- Synchronized template orchestration docs under `templates/prompts/ORCHESTRATION.md`.
 
 ## [1.1.0] - 2026-08-24
 

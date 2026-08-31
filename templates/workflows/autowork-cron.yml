@@ -12,6 +12,10 @@ on:
         description: 'Optional issue number to work in Targeted mode (leave blank for Scan mode)'
         required: false
         type: string
+      issue_number:
+        description: 'Alias for target_issue (e.g. 18)'
+        required: false
+        type: string
 
 concurrency:
   group: autowork-agent-scan
@@ -106,7 +110,7 @@ jobs:
           GOOGLE_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           ANTIGRAVITY_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GH_TOKEN: ${{ secrets.GH_PAT || github.token }}
-          TARGET_ISSUE: ${{ inputs.target_issue }}
+          TARGET_ISSUE: ${{ inputs.target_issue || inputs.issue_number }}
           SKILLS_PROMPT: ${{ steps.skills.outputs.skills_prompt }}
           GITHUB_SERVER_URL: ${{ github.server_url }}
           GITHUB_REPOSITORY: ${{ github.repository }}

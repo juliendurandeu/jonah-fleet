@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Review failure notification handler and 2-hour scheduled scan sweep watchdog in `trigger-review-routine.yml` to prevent stuck PRs and recover orphaned ready PRs.
+- Orphaned ready PR watchdog in `autowork.md` (Step 3c) and Scan mode unreviewed prioritization in `peer-review.md`.
+- Peer Review Resilience & Orphaned PR Recovery protocol documentation in `ORCHESTRATION.md`.
 - Comprehensive bi-directional optimization bridge evaluations test suite and synthetic run log fixtures (`src/lib/evals.ts`, `tests/evals.test.ts`).
 - Upstream contribution CLI test suite with mock executor and dry-run support (`tests/contribute.test.ts`).
 - Downstream synchronization workflow and drift scenario test suite (`tests/sync-workflow.test.ts`).

@@ -183,6 +183,12 @@ Each target project contains an `agents-manifest.json` at its root:
 
 ---
 
+## 🙏 Acknowledgments & Credits
+
+- **[OpenAI Symphony](https://github.com/openai/symphony)**: Jonah Fleet's orchestration architecture, single-flight claim locking, reader/writer separation, and prompt engineering protocols are inspired by OpenAI's [Symphony Specification](https://github.com/openai/symphony/blob/main/SPEC.md), licensed under [Apache-2.0](https://github.com/openai/symphony/blob/main/LICENSE). See [NOTICE](./NOTICE) for formal attribution.
+
+---
+
 ## 📄 License
 
 MIT © Julien Durand

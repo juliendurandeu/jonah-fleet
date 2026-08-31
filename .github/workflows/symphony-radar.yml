@@ -1,0 +1,67 @@
+name: Upstream Symphony Radar
+
+on:
+  schedule:
+    # Runs every Monday at 09:00 UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+    inputs:
+      lookback_days:
+        description: 'Number of days of history to inspect'
+        required: false
+        default: '7'
+      force_issue:
+        description: 'Force creation of an intel issue even if no new activity is detected'
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: symphony-radar
+  cancel-in-progress: false
+
+jobs:
+  radar:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Fetch Upstream Symphony Activity
+        id: fetch-radar
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT || github.token }}
+          GITHUB_TOKEN: ${{ secrets.GH_PAT || github.token }}
+          LOOKBACK_DAYS: ${{ github.event.inputs.lookback_days || '7' }}
+          FORCE_REPORT: ${{ github.event.inputs.force_issue || 'false' }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+        run: |
+          node .github/scripts/fetch-symphony-radar.js
+
+      - name: Emit Step Summary
+        if: always()
+        run: |
+          if [ -f "radar-report.md" ] && [ -n "$GITHUB_STEP_SUMMARY" ]; then
+            cat radar-report.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Create Upstream Intel Issue
+        if: steps.fetch-radar.outputs.should_create_issue == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT || github.token }}
+          ISSUE_TITLE: ${{ steps.fetch-radar.outputs.issue_title }}
+        run: |
+          gh issue create \
+            --title "$ISSUE_TITLE" \
+            --label "enhancement" \
+            --body-file "radar-report.md"

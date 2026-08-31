@@ -50,6 +50,7 @@ Every review ends in exactly one of two states:
 
 - Do not review or list any other PR when `$PR_NUMBER` is set.
 - Do not continue reviewing a PR after discovering it is already merged or closed.
+- Do not review automated release PRs (`release-please--*` / `chore(main): release*`).
 - Do not merge a PR with failing or absent CI checks.
 - Do not leave a PR in limbo — always merge or convert back to draft.
 - Do not attempt `REQUEST_CHANGES` or `APPROVE` on own PRs (GitHub rejects same-account review states). Always use `COMMENT` + draft toggle.
@@ -67,7 +68,7 @@ Check if `$PR_NUMBER` is set:
 
 ### Steps 1–2: Select a PR (Scan mode only)
 
-1. List all open PRs, excluding drafts and pure log PRs (`.github/prompts/logs/**`).
+1. List all open PRs, excluding drafts, pure log PRs (`.github/prompts/logs/**`), and automated release PRs (`release-please--*` / `chore(main): release*`).
 2. Prioritize:
    - **Category A (re-review)**: PRs with prior review comments where author has pushed new fix commits.
    - **Category B (first review / unreviewed)**: Brand new PRs ready for review, or ready PRs whose previous review session failed or timed out.

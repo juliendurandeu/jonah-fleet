@@ -1,0 +1,14 @@
+Jonah Fleet
+Copyright (c) 2026 Julien Durand
+
+This project is inspired by and incorporates architectural concepts from
+OpenAI Symphony (https://github.com/openai/symphony),
+Copyright (c) OpenAI, licensed under the Apache License, Version 2.0.
+
+Specifically, the following architectural paradigms and patterns draw inspiration
+from the OpenAI Symphony specification (SPEC.md):
+- Single-flight issue claiming and lock protocol
+- Reader/Writer routine separation (Autowork vs. Peer Review)
+- Warm-context review and interactive fix loops
+- Dead-run claim recovery and stale claim eviction
+- Dynamic repository-agnostic prompt ingestion from AGENTS.md

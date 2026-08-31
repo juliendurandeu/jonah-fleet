@@ -70,7 +70,7 @@ Check if `$PR_NUMBER` is set:
 1. List all open PRs, excluding drafts and pure log PRs (`.github/prompts/logs/**`).
 2. Prioritize:
    - **Category A (re-review)**: PRs with prior review comments where author has pushed new fix commits.
-   - **Category B (first review)**: Brand new PRs ready for review.
+   - **Category B (first review / unreviewed)**: Brand new PRs ready for review, or ready PRs whose previous review session failed or timed out.
 
 ### Step 3: Round tracking & Starting Review marker
 

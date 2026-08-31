@@ -121,6 +121,24 @@ describe('Prompt Validation & Invariants', () => {
     expect(content).toContain('/peer-review');
   });
 
+  it('validates ORCHESTRATION.md, autowork.md, and peer-review.md define the Peer Review Resilience & Orphaned PR Recovery protocol', () => {
+    const orchestrationPath = path.join(templatesDir, 'prompts', 'ORCHESTRATION.md');
+    const autoworkPath = path.join(templatesDir, 'prompts', 'autowork.md');
+    const peerReviewPath = path.join(templatesDir, 'prompts', 'peer-review.md');
+
+    const orchestrationContent = fs.readFileSync(orchestrationPath, 'utf8');
+    const autoworkContent = fs.readFileSync(autoworkPath, 'utf8');
+    const peerReviewContent = fs.readFileSync(peerReviewPath, 'utf8');
+
+    expect(orchestrationContent).toContain('## Peer Review Resilience & Orphaned PR Recovery');
+    expect(orchestrationContent).toContain('Failure Trapping & Transparency');
+    expect(orchestrationContent).toContain('Periodic Scan Sweep (Watchdog)');
+    expect(orchestrationContent).toContain('Autowork Phase 1 Watchdog');
+
+    expect(autoworkContent).toContain('Orphaned Ready PR Recovery');
+    expect(peerReviewContent).toContain('Category B (first review / unreviewed)');
+  });
+
   it('ensures prompt templates in templates/prompts are strictly synchronized with .github/prompts', () => {
     const githubPromptsDir = path.resolve(process.cwd(), '.github', 'prompts');
     expect(fs.existsSync(githubPromptsDir)).toBe(true);

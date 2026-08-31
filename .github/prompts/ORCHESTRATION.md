@@ -21,8 +21,9 @@ Dispatch is both **scheduled** and **event-driven**. All routines run as ephemer
   - `trigger-review-routine.yml` fires Peer Review automatically when a PR is marked ready for review, updated, or review is requested (`ready_for_review`, `opened`, `reopened`, `synchronize`, `review_requested`). It can also be manually (re)triggered via `workflow_dispatch` (with optional `pr_number` for Targeted mode or blank for Scan mode) or by commenting `/review`, `/peer-review`, `/retrigger`, or `/re-review` on any open pull request.
   - `trigger-autowork-on-merge.yml` fires Autowork in **Targeted mode** when a PR merges to `main` and unblocks the next unit of chained work.
   - `trigger-autowork-on-bug.yml` fires Autowork when an issue becomes a high-priority bug.
+  - `trigger-autowork-manual.yml` fires Autowork manually via `workflow_dispatch` or badge link click on a specific issue in **Targeted mode**.
 
-Both autowork triggers pass the target issue via environment variables (`ISSUE_NUMBER`, `ISSUE_URL`), putting autowork.md into **Targeted mode** (working the named issue ahead of Phase 1 convergence). Single-flight per issue is strictly enforced across scheduled, event-driven, and manually triggered runs.
+Autowork triggers pass the target issue via environment variables (`TARGET_ISSUE`, `ISSUE_NUMBER`, `ISSUE_URL`), putting autowork.md into **Targeted mode** (working the named issue ahead of Phase 1 convergence). Single-flight per issue is strictly enforced across scheduled, event-driven, and manually triggered runs.
 
 Invariants deliberately upheld from this spec:
 

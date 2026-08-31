@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Global 70% weekly token budget ceiling tracking (~8.75M tokens/week) with utilization percentage, daily burn rates, and health badges (`[HEALTHY]`, `[WARNING]`, `[CRITICAL]`, `[EXCEEDED]`).
 - Opt-in telemetry emission step in `autowork-cron.yml`, `trigger-review-routine.yml`, and `prompt-optimizer-cron.yml`.
 - `telemetry` configuration block in `schema.json` and `agents-manifest.json`.
+- Dedicated `trigger-autowork-manual.yml` workflow template for targeted on-demand Autowork runs via `workflow_dispatch` and issue badge links.
+- Badge link format documentation in `templates/docs/AGENTS.template.md` and repository `AGENTS.md`.
+- Default GitHub Issue Templates in `.github/ISSUE_TEMPLATE/` (`feature_request.md` and `bug_report.md`) embedding the Targeted Autowork badge link.
+- `trigger-autowork-manual.yml` added to `ROUTINE_TO_WORKFLOW_MAP.autowork` for automatic installation and drift detection.
+- Alias support for `issue_number` in `autowork-cron.yml` `workflow_dispatch` trigger.
+- Unit and drift tests in `tests/workflows-validation.test.ts` and `tests/installer.test.ts`.
 
 ## [1.2.0] - 2026-08-30
 

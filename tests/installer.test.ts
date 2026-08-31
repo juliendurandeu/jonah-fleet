@@ -39,6 +39,38 @@ describe('Fleet Installer & Drift Detection', () => {
     expect(drift.missingSkills.length).toBe(0);
   });
 
+  it('auto-populates AGENTS.md with detected Python stack', () => {
+    fs.writeFileSync(
+      path.join(tempDir, 'pyproject.toml'),
+      '[project]\nname="py-app"\ndependencies=["fastapi>=0.100.0"]\n[tool.uv]\ndev-dependencies=["pytest>=8.0.0"]\n'
+    );
+    fs.writeFileSync(path.join(tempDir, 'uv.lock'), '');
+
+    const manifest = createDefaultManifest('standard');
+    installFleet(tempDir, manifest);
+
+    const agentsContent = fs.readFileSync(path.join(tempDir, 'AGENTS.md'), 'utf8');
+    expect(agentsContent).toContain('- **Framework / Language**: Python (FastAPI)');
+    expect(agentsContent).toContain('- **Package Manager**: uv');
+    expect(agentsContent).toContain('uv run pytest');
+  });
+
+  it('auto-populates AGENTS.md with detected Go stack', () => {
+    fs.writeFileSync(
+      path.join(tempDir, 'go.mod'),
+      'module example.com/service\ngo 1.22\n'
+    );
+    fs.writeFileSync(path.join(tempDir, 'main.go'), 'package main\nfunc main() {}');
+
+    const manifest = createDefaultManifest('standard');
+    installFleet(tempDir, manifest);
+
+    const agentsContent = fs.readFileSync(path.join(tempDir, 'AGENTS.md'), 'utf8');
+    expect(agentsContent).toContain('- **Framework / Language**: Go');
+    expect(agentsContent).toContain('- **Package Manager**: go');
+    expect(agentsContent).toContain('go test ./...');
+  });
+
   it('detects missing files as drift', () => {
     const manifest = createDefaultManifest('standard');
     installFleet(tempDir, manifest);

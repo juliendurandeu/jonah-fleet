@@ -19,6 +19,12 @@ program
   .description('Initialize Jonah Fleet configuration, routines, workflows, and skills in the current repo')
   .option('-p, --preset <preset>', 'Preset profile to install (minimal | standard | full)', 'standard')
   .option('-f, --force', 'Force overwrite existing files', false)
+  .option('--stack <stack>', 'Override detected tech stack name')
+  .option('--package-manager <pm>', 'Override package manager (npm, pnpm, yarn, bun, uv, poetry, cargo, go)')
+  .option('--test-cmd <cmd>', 'Override test execution command')
+  .option('--build-cmd <cmd>', 'Override build execution command')
+  .option('--interactive', 'Force interactive prompts for stack configuration')
+  .option('--no-interactive', 'Disable interactive prompts')
   .action(async (options) => {
     await runInit(options);
   });

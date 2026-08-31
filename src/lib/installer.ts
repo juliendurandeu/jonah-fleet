@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { FleetManifest, ROUTINE_TO_WORKFLOW_MAP } from './presets.js';
+import { DetectedStack, detectTechStack, renderAgentsTemplate } from './detector.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -22,7 +23,12 @@ export interface InstallResult {
   docsInstalled: string[];
 }
 
-export function installFleet(targetDir: string, manifest: FleetManifest, options: { force?: boolean } = {}): InstallResult {
+export interface InstallOptions {
+  force?: boolean;
+  detectedStack?: DetectedStack;
+}
+
+export function installFleet(targetDir: string, manifest: FleetManifest, options: InstallOptions = {}): InstallResult {
   const templatesDir = getTemplatesDir();
   const result: InstallResult = {
     promptsInstalled: [],
@@ -109,10 +115,13 @@ export function installFleet(targetDir: string, manifest: FleetManifest, options
   const agentsPath = path.join(targetDir, 'AGENTS.md');
   const claudePath = path.join(targetDir, 'CLAUDE.md');
   const geminiPath = path.join(targetDir, 'GEMINI.md');
-  if (!fs.existsSync(agentsPath) && !fs.existsSync(claudePath) && !fs.existsSync(geminiPath)) {
+  if ((!fs.existsSync(agentsPath) && !fs.existsSync(claudePath) && !fs.existsSync(geminiPath)) || options.force) {
     const docSrc = path.join(templatesDir, 'docs/AGENTS.template.md');
     if (fs.existsSync(docSrc)) {
-      fs.copyFileSync(docSrc, agentsPath);
+      const templateContent = fs.readFileSync(docSrc, 'utf8');
+      const stack = options.detectedStack || detectTechStack(targetDir);
+      const renderedContent = renderAgentsTemplate(templateContent, stack);
+      fs.writeFileSync(agentsPath, renderedContent, 'utf8');
       result.docsInstalled.push('AGENTS.md');
     }
   }

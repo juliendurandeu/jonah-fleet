@@ -51,7 +51,7 @@ describe('Status Command', () => {
       )
     );
 
-    // Create prompt logs
+    // Create prompt logs with dynamic timestamp within 7-day rolling window
     const logsDir = path.join(tempDir, '.github/prompts/logs/autowork');
     fs.mkdirSync(logsDir, { recursive: true });
     const logTimestamp = new Date().toISOString();

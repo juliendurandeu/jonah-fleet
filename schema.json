@@ -25,7 +25,8 @@
         "optimizer": { "type": "boolean" },
         "issues-housekeeping": { "type": "boolean" },
         "dependency-update-security-check": { "type": "boolean" },
-        "product-planning": { "type": "boolean" }
+        "product-planning": { "type": "boolean" },
+        "analytics-review": { "type": "boolean" }
       },
       "additionalProperties": false,
       "description": "Granular routine toggles"

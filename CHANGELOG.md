@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Analytics Review Routine (`templates/prompts/analytics-review.md` & `.github/prompts/analytics-review.md`): Evaluates active and scheduled measurement trackers against product metrics, user adoption, and conversion funnels. Requires mandatory structured action directives (`RECOMMENDATION: [PIVOT | DEPRECATE | ITERATE]`) upon measurement closure to bridge outcomes directly into product planning (#28).
+- Feature Pruning & Deprecation Audit in Product Planning (`templates/prompts/product-planning.md` & `.github/prompts/product-planning.md`): Audits shipped features and closed measurement tracker verdicts in Propose mode for low-ROI / high-maintenance features (<2% adoption, >50% failure rate) and drafts deprecation / simplification proposals (#28).
+- Intent vs. Defect Guardrail & Telemetry Rabbit Hole Prevention in Autowork and Diagnosing Bugs (`templates/prompts/autowork.md`, `.github/prompts/autowork.md`, `templates/skills/diagnosing-bugs/SKILL.md`, `.agents/skills/diagnosing-bugs/SKILL.md`): Prevents agents from wasting cycles writing elaborate fallback telemetry or defensive error handling when low adoption stems from lack of user intent rather than software defects, routing issues to `needs-design`/`roadmap/*` (#28).
+- Post-Measurement Product Bridge & Intent vs. Defect Guardrail Architecture in `ORCHESTRATION.md` (#28).
+- Registered `analytics-review` in `schema.json`, `src/lib/presets.ts`, `src/lib/manifest.ts`, and `full` preset bundle (#28).
+
 ### Fixed
 - Resolved Critical (GHSA-5xrq-8626-4rwp), High (GHSA-fx2h-pf6j-xcff), and Moderate security vulnerabilities in `vitest` and transitive dependencies (`vite`, `esbuild`, `vite-node`, `@vitest/mocker`) by upgrading `vitest` to `^4.1.11` and overriding `esbuild` to `^0.28.2` (#38).
 

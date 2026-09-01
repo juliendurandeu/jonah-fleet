@@ -139,6 +139,54 @@ describe('Prompt Validation & Invariants', () => {
     expect(peerReviewContent).toContain('Category B (first review / unreviewed)');
   });
 
+  it('validates analytics-review.md defines mandatory post-measurement action directives and product planning bridge', () => {
+    const templatePath = path.join(promptsDir, 'analytics-review.md');
+    expect(fs.existsSync(templatePath)).toBe(true);
+
+    const content = fs.readFileSync(templatePath, 'utf8');
+    expect(content).toContain('## Objective');
+    expect(content).toContain('## Definition of Done');
+    expect(content).toContain('## Constraints');
+    expect(content).toContain('## Instructions');
+    expect(content).toContain('## Logging');
+    expect(content).toContain('RECOMMENDATION:');
+    expect(content).toMatch(/RECOMMENDATION:.*\[PIVOT \| DEPRECATE \| ITERATE\]/);
+    expect(content).toContain('🗺️ Product Plan');
+    expect(content).toContain('product-planning');
+  });
+
+  it('validates product-planning.md contains feature pruning and deprecation audit in Propose mode', () => {
+    const templatePath = path.join(promptsDir, 'product-planning.md');
+    const content = fs.readFileSync(templatePath, 'utf8');
+
+    expect(content).toMatch(/pruning|deprecation/i);
+    expect(content).toMatch(/<2%/);
+    expect(content).toMatch(/>50%/);
+    expect(content).toContain('RECOMMENDATION:');
+  });
+
+  it('validates autowork.md and diagnosing-bugs contain Intent vs. Defect Guardrail to prevent telemetry rabbit holes', () => {
+    const autoworkPath = path.join(promptsDir, 'autowork.md');
+    const autoworkContent = fs.readFileSync(autoworkPath, 'utf8');
+    expect(autoworkContent).toContain('Intent vs. Defect Guardrail');
+    expect(autoworkContent).toMatch(/telemetry rabbit hole/i);
+    expect(autoworkContent).toMatch(/needs-design|roadmap\/\*/);
+
+    const diagnosingBugsPath = path.join(templatesDir, 'skills', 'diagnosing-bugs', 'SKILL.md');
+    const diagnosingBugsContent = fs.readFileSync(diagnosingBugsPath, 'utf8');
+    expect(diagnosingBugsContent).toContain('Intent vs. Defect Guardrail');
+    expect(diagnosingBugsContent).toMatch(/telemetry rabbit hole/i);
+  });
+
+  it('validates ORCHESTRATION.md documents the Post-Measurement Product Bridge and Intent vs. Defect Guardrail', () => {
+    const orchestrationPath = path.join(templatesDir, 'prompts', 'ORCHESTRATION.md');
+    const content = fs.readFileSync(orchestrationPath, 'utf8');
+
+    expect(content).toContain('Post-Measurement Product Bridge');
+    expect(content).toContain('Intent vs. Defect Guardrail');
+    expect(content).toContain('RECOMMENDATION: [PIVOT | DEPRECATE | ITERATE]');
+  });
+
   it('ensures prompt templates in templates/prompts are strictly synchronized with .github/prompts', () => {
     const githubPromptsDir = path.resolve(process.cwd(), '.github', 'prompts');
     expect(fs.existsSync(githubPromptsDir)).toBe(true);

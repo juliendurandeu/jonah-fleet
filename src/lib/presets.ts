@@ -11,6 +11,7 @@ export interface FleetManifest {
     'issues-housekeeping': boolean;
     'dependency-update-security-check': boolean;
     'product-planning': boolean;
+    'analytics-review': boolean;
   };
   skills: string[];
   repositories?: string[];
@@ -34,6 +35,7 @@ export const PRESET_CONFIGS: Record<Exclude<PresetName, 'custom'>, { routines: F
       'issues-housekeeping': false,
       'dependency-update-security-check': false,
       'product-planning': false,
+      'analytics-review': false,
     },
     skills: [
       'tdd',
@@ -51,6 +53,7 @@ export const PRESET_CONFIGS: Record<Exclude<PresetName, 'custom'>, { routines: F
       'issues-housekeeping': true,
       'dependency-update-security-check': true,
       'product-planning': false,
+      'analytics-review': false,
     },
     skills: [
       'tdd',
@@ -71,6 +74,7 @@ export const PRESET_CONFIGS: Record<Exclude<PresetName, 'custom'>, { routines: F
       'issues-housekeeping': true,
       'dependency-update-security-check': true,
       'product-planning': true,
+      'analytics-review': true,
     },
     skills: [
       'tdd',
@@ -99,6 +103,7 @@ export const ROUTINE_TO_WORKFLOW_MAP: Record<keyof FleetManifest['routines'], st
   'issues-housekeeping': ['issues-housekeeping-cron.yml'],
   'dependency-update-security-check': ['dependency-check-cron.yml'],
   'product-planning': [],
+  'analytics-review': [],
 };
 
 export const FLEET_VERSION = '1.2.0';

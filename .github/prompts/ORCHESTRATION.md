@@ -64,6 +64,7 @@ Single source of truth for both autowork candidate reclamation and housekeeping 
 | Issues Housekeeping | `.github/prompts/issues-housekeeping.md` | Sweeping open issues for staleness, duplicates, label drift, priority accuracy, and orphaned claims |
 | Dependency Update & Security Check | `.github/prompts/dependency-update-security-check.md` | Checking dependencies for updates and known vulnerabilities, opening actionable PRs |
 | Product Planning | `.github/prompts/product-planning.md` | Turning roadmap priorities into staged issues (`/to-tickets`) and formal PRDs (`/to-spec`) |
+| Analytics Review | `.github/prompts/analytics-review.md` | Evaluating telemetry & measurement trackers against success metrics, emitting action directives (PIVOT/DEPRECATE/ITERATE), and bridging to product planning |
 
 ---
 
@@ -166,3 +167,14 @@ How changes and innovations from [openai/symphony](https://github.com/openai/sym
    - **🟢 Category A (Adopt Directly)**: Security guardrails, claim lock invariants, reader/writer rules, prompt engineering optimizations.
    - **🟡 Category B (Adapt to Actions/CLI)**: Dynamic orchestrator pacing, backpressure controls, multi-stage review checks.
    - **🔴 Category C (Skip)**: Elixir/OTP supervision trees, BEAM memory tuning, proprietary runtime internals.
+
+---
+
+## Post-Measurement Product Bridge & Intent vs. Defect Guardrail
+
+How closed-loop feedback from product telemetry and measurement trackers drives product decisions while preventing autonomous agents from falling into telemetry rabbit holes:
+
+1. **Mandatory Post-Measurement Action Rule**: When `analytics-review` concludes an evaluation of a feature or experiment tracker (especially sub-threshold features with <2% user adoption or >50% failure rates), it MUST emit a structured directive: `RECOMMENDATION: [PIVOT | DEPRECATE | ITERATE]`. Measurement closure is never a terminal dead-end; outcomes are staged into the active `🗺️ Product Plan` or actionable `roadmap/*` issues.
+2. **Feature Pruning & Deprecation Audit**: During Propose mode sweeps, `product-planning` actively audits shipped roadmap items and closed measurement trackers. For features with low ROI (<2% adoption, >50% error/failure rate), it drafts explicit deprecation, removal, or simplification proposals alongside new feature additions, keeping the codebase and UI lean.
+3. **Intent vs. Defect Guardrail**: When investigating underperforming or zero-conversion features, `autowork` and `diagnosing-bugs` verify whether the issue is a software defect or a lack of user intent. If the feature functions properly without runtime errors but user interaction is negligible, agents must classify the issue as a **product/UX intent question** (`needs-design` / `roadmap/*`) rather than falling into the **Telemetry Rabbit Hole** (adding redundant fallback telemetry, defensive error handling, or retry loops for unwanted features).
+

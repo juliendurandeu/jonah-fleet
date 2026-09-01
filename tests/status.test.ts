@@ -54,17 +54,15 @@ describe('Status Command', () => {
     // Create prompt logs with dynamic timestamp within 7-day rolling window
     const logsDir = path.join(tempDir, '.github/prompts/logs/autowork');
     fs.mkdirSync(logsDir, { recursive: true });
-    const now = new Date();
-    const isoString = now.toISOString();
-    const logFilename = `${isoString.replace(/:/g, '-').replace(/\..+/, '')}Z.md`;
+    const logTimestamp = new Date().toISOString();
     fs.writeFileSync(
-      path.join(logsDir, logFilename),
+      path.join(logsDir, `${logTimestamp.replace(/[:.]/g, '-')}.md`),
       `# Run Log
 ## Metadata
 | Field | Value |
 |-------|-------|
 | Routine | \`autowork\` |
-| Timestamp | \`${isoString}\` |
+| Timestamp | \`${logTimestamp}\` |
 | Result | \`SUCCESS\` |
 | Input tokens | \`80000\` |
 | Output tokens | \`5000\` |

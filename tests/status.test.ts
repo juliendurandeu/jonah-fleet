@@ -54,14 +54,15 @@ describe('Status Command', () => {
     // Create prompt logs
     const logsDir = path.join(tempDir, '.github/prompts/logs/autowork');
     fs.mkdirSync(logsDir, { recursive: true });
+    const logTimestamp = new Date().toISOString();
     fs.writeFileSync(
-      path.join(logsDir, '2026-08-25T10-00-00Z.md'),
+      path.join(logsDir, `${logTimestamp.replace(/[:.]/g, '-')}.md`),
       `# Run Log
 ## Metadata
 | Field | Value |
 |-------|-------|
 | Routine | \`autowork\` |
-| Timestamp | \`2026-08-25T10:00:00Z\` |
+| Timestamp | \`${logTimestamp}\` |
 | Result | \`SUCCESS\` |
 | Input tokens | \`80000\` |
 | Output tokens | \`5000\` |

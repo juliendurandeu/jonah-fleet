@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Post-Measurement Product Bridge & Intent vs. Defect Guardrail Architecture in `ORCHESTRATION.md` (#28).
 - Registered `analytics-review` in `schema.json`, `src/lib/presets.ts`, `src/lib/manifest.ts`, and `full` preset bundle (#28).
 
+### Changed
+- Upgraded development dependency `typescript` from `5.9.3` to `^7.0.2`, configured `"types": ["node"]` in `tsconfig.json`, and configured `tsc` declaration emit (#40).
+
 ### Fixed
 - Resolved Critical (GHSA-5xrq-8626-4rwp), High (GHSA-fx2h-pf6j-xcff), and Moderate security vulnerabilities in `vitest` and transitive dependencies (`vite`, `esbuild`, `vite-node`, `@vitest/mocker`) by upgrading `vitest` to `^4.1.11` and overriding `esbuild` to `^0.28.2` (#38).
 

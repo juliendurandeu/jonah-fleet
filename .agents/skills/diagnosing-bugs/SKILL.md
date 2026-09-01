@@ -85,6 +85,15 @@ Done when **every remaining element is load-bearing**: removing any one of them 
 
 Do not proceed until you have reproduced **and** minimised.
 
+## Intent vs. Defect Guardrail (Telemetry Rabbit Hole Prevention)
+
+When diagnosing an under-performing event, low-conversion funnel, or zero-click CTA:
+
+1. **Check for mechanical functionality first.** Run the code path or click handler in isolation: does it execute, route, and emit telemetry without throwing?
+2. **Distinguish user intent from code defects.** If the feature renders above the fold and works when clicked, but telemetry reveals near-zero clicks (<2% adoption), the root cause is **lack of user intent**, not a software bug.
+3. **Prevent the Telemetry Rabbit Hole.** Do NOT spend cycles instrumenting elaborate fallback telemetry, defensive error handling, or retry loops for a feature users simply do not want.
+4. **Handoff to product planning.** Reclassify the issue as a product/UX question (`needs-design` or `roadmap/*`) and hand it off to `product-planning` rather than writing code fixes.
+
 ## Phase 3: Hypothesise
 
 Generate **3–5 ranked hypotheses** before testing any of them. Single-hypothesis generation anchors on the first plausible idea.

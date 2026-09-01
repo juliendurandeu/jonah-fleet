@@ -7,10 +7,10 @@ import { createDefaultManifest, loadManifest, saveManifest } from './manifest.js
 import { FLEET_VERSION, type FleetManifest } from './presets.js';
 
 export interface SyntheticLogOptions {
-  routine: 'autowork' | 'peer-review' | 'optimizer' | 'issues-housekeeping' | 'dependency-check';
+  routine: 'autowork' | 'peer-review' | 'optimizer' | 'issues-housekeeping' | 'dependency-check' | 'product-planning' | 'analytics-review';
   timestamp: string;
   result: 'SUCCESS' | 'FAILURE';
-  errorCategory?: 'prompt_unclear' | 'token_limit' | 'data_issue' | 'infeasible_task' | 'merge_conflict' | 'orchestration_collision';
+  errorCategory?: 'prompt_unclear' | 'token_limit' | 'data_issue' | 'infeasible_task' | 'merge_conflict' | 'orchestration_collision' | 'telemetry_rabbit_hole' | 'intent_vs_defect';
   errorReason?: string;
   inputTokens?: number;
   outputTokens?: number;
@@ -192,7 +192,7 @@ export function analyzeOptimizerSignals(logs: string[]): OptimizationAnalysisRes
       const cat = catMatch ? catMatch[1] : 'unspecified';
       failureCategories[cat] = (failureCategories[cat] || 0) + 1;
 
-      const isGeneric = rawLog.includes('Scope: `generic`') || cat === 'orchestration_collision' || cat === 'prompt_unclear';
+      const isGeneric = rawLog.includes('Scope: `generic`') || cat === 'orchestration_collision' || cat === 'prompt_unclear' || cat === 'telemetry_rabbit_hole' || cat === 'intent_vs_defect';
       const reasonMatch = rawLog.match(/Details:\s*([^\n]+)/) || rawLog.match(/\| Error reason \| ([^|]+) \|/);
       const reason = reasonMatch ? reasonMatch[1].trim() : 'Routine execution failed';
       const fixMatch = rawLog.match(/Suggested Fix:\s*([^\n]+)/);

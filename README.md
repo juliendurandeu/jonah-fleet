@@ -63,7 +63,7 @@ npx jonah-fleet init --preset standard
 Available presets:
 - **`minimal`**: `autowork` + `peer-review` + `optimizer`
 - **`standard`** (default): minimal + `issues-housekeeping` + `dependency-update-security-check`
-- **`full`**: standard + `product-planning`
+- **`full`**: standard + `product-planning` + `analytics-review`
 
 ### 2. Configure GitHub Actions Permissions
 
@@ -154,7 +154,8 @@ Each target project contains an `agents-manifest.json` at its root:
     "optimizer": true,
     "issues-housekeeping": true,
     "dependency-update-security-check": true,
-    "product-planning": false
+    "product-planning": false,
+    "analytics-review": false
   },
   "skills": [
     "tdd",

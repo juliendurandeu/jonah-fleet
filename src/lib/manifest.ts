@@ -35,6 +35,7 @@ export function createDefaultManifest(preset: PresetName = 'standard'): FleetMan
         'issues-housekeeping': true,
         'dependency-update-security-check': true,
         'product-planning': false,
+        'analytics-review': false,
       },
       skills: PRESET_CONFIGS.standard.skills,
       autoUpdate: {

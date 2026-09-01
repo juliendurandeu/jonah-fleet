@@ -42,6 +42,7 @@ If any criterion cannot be met, stop immediately and log FAILURE with the reason
 - Do not attempt an issue that requires environment secrets, manual testing, or external service setup — mark it as infeasible with a comment.
 - Do not start implementing an issue before claiming it (both assignment AND claim comment).
 - Do not mark a PR ready while its `mergeable_state` is `dirty` — resolve merge conflicts first.
+- Do not fall into the **Telemetry Rabbit Hole**: do not spend cycles instrumenting elaborate fallback telemetry or defensive error handling for features that suffer from lack of user intent rather than software bugs.
 
 ## Instructions
 
@@ -95,6 +96,7 @@ b. **Eligible → claim, then implement.** Call `get_me` once to learn your own 
     - Read the issue description, linked code, and comment thread.
     - If bug: use `/diagnosing-bugs` to establish reproduction test before fixing.
     - If large/complex: use `/domain-modeling` and `/codebase-design`.
+    - **Intent vs. Defect Guardrail**: When investigating issues related to low conversion, zero-click events, or underperforming features: verify whether the issue is a software defect or a lack of user intent. If data indicates the root cause is **lack of user intent** (e.g. button is rendered above fold and functions correctly when clicked, but user interaction rate is <2%) rather than a software defect, do NOT fall into the **telemetry rabbit hole** (adding elaborate fallback telemetry, downstream error handling, or defensive rendering). Categorize the issue as a **product/UX question** (`needs-design` / `roadmap/*`), comment explaining the lack of user intent, release the claim (unassign), and select the next candidate.
     - If infeasible: comment explaining blocker, release claim (unassign), and select next candidate (up to 3 infeasible evaluations per run). If permanent blocker on 2nd strike, apply `needs-human` label and tag repo owner.
 12a. **Umbrella-issue handoff + batching:** If candidate is an umbrella epic:
     - Read `🧭 Decomposition plan` comment (or create if first run).

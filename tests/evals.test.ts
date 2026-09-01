@@ -116,6 +116,50 @@ describe('Bi-directional Optimization Bridge & Evals Suite', () => {
       expect(genericProposals[0].title).toContain('orchestration');
       expect(localProposals.length).toBe(1);
     });
+
+    it('detects telemetry rabbit hole patterns and proposes Intent vs. Defect guardrail optimization', () => {
+      const rabbitHoleLog = createSyntheticRunLog({
+        routine: 'autowork',
+        timestamp: '2026-08-30T10:00:00Z',
+        result: 'FAILURE',
+        errorCategory: 'telemetry_rabbit_hole',
+        errorReason: 'Agent spent 4 iterations adding fallback error tracking to unused CTA with 0.5% CTR',
+        isGenericPattern: true,
+        suggestedOptimization: 'Apply Intent vs. Defect Guardrail in autowork.md and diagnosing-bugs',
+      });
+
+      const analysis = analyzeOptimizerSignals([rabbitHoleLog]);
+      expect(analysis.failureCount).toBe(1);
+      expect(analysis.failureCategories['telemetry_rabbit_hole']).toBe(1);
+      expect(analysis.proposals.length).toBe(1);
+      expect(analysis.proposals[0].scope).toBe('generic');
+      expect(analysis.proposals[0].title).toContain('telemetry rabbit hole');
+      expect(analysis.proposals[0].suggestedChanges).toContain('Intent vs. Defect Guardrail');
+    });
+
+    it('processes synthetic analytics-review and product-planning logs cleanly', () => {
+      const analyticsLog = createSyntheticRunLog({
+        routine: 'analytics-review',
+        timestamp: '2026-08-30T11:00:00Z',
+        result: 'SUCCESS',
+        inputTokens: 50000,
+        outputTokens: 4000,
+        iterations: 15,
+      });
+
+      const planningLog = createSyntheticRunLog({
+        routine: 'product-planning',
+        timestamp: '2026-08-30T12:00:00Z',
+        result: 'SUCCESS',
+        inputTokens: 60000,
+        outputTokens: 4500,
+        iterations: 18,
+      });
+
+      const analysis = analyzeOptimizerSignals([analyticsLog, planningLog]);
+      expect(analysis.totalLogsScanned).toBe(2);
+      expect(analysis.failureCount).toBe(0);
+    });
   });
 
   describe('Downstream Sync Workflow Simulation', () => {

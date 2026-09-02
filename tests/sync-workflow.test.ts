@@ -75,4 +75,75 @@ describe('Sync Fleet Workflow Logic & Drift Scenarios', () => {
     expect(content).toContain('gh pr create');
     expect(content).toContain('--title "chore(fleet): sync prompt routines and workflows from jonah-fleet"');
   });
+
+  it('respects manifest schedules on sync without reporting false drift', async () => {
+    const manifest = createDefaultManifest('standard');
+    manifest.schedules = {
+      autowork: '0 * * * *',
+    };
+    saveManifest(tempDir, manifest);
+    installFleet(tempDir, manifest);
+
+    const autoworkPath = path.join(tempDir, '.github/workflows/autowork-cron.yml');
+    expect(fs.readFileSync(autoworkPath, 'utf8')).toContain("- cron: '0 * * * *'");
+
+    // Check drift: should be zero
+    const drift = checkDrift(tempDir, manifest);
+    expect(drift.modifiedWorkflows.length).toBe(0);
+
+    // Sync --force should keep the hourly cron
+    await runSync({ force: true, cwd: tempDir });
+    expect(fs.readFileSync(autoworkPath, 'utf8')).toContain("- cron: '0 * * * *'");
+
+    const postDrift = checkDrift(tempDir, manifest);
+    expect(postDrift.modifiedWorkflows.length).toBe(0);
+  });
+
+  it('preserves existing local workflow cron schedules across force syncs', async () => {
+    const manifest = createDefaultManifest('standard');
+    saveManifest(tempDir, manifest);
+    installFleet(tempDir, manifest);
+
+    // User customized cron in autowork-cron.yml directly to run every 30 minutes
+    const autoworkPath = path.join(tempDir, '.github/workflows/autowork-cron.yml');
+    let content = fs.readFileSync(autoworkPath, 'utf8');
+    content = content.replace("cron: '15 */6 * * *'", "cron: '*/30 * * * *'");
+    fs.writeFileSync(autoworkPath, content, 'utf8');
+
+    // Drift check should recognize preserved cron as zero workflow drift
+    const drift = checkDrift(tempDir, manifest);
+    expect(drift.modifiedWorkflows.length).toBe(0);
+
+    // Sync --force should not clobber the user's custom cron back to 6h
+    await runSync({ force: true, cwd: tempDir });
+    const postSyncContent = fs.readFileSync(autoworkPath, 'utf8');
+    expect(postSyncContent).toContain("- cron: '*/30 * * * *'");
+    expect(postSyncContent).not.toContain("- cron: '15 */6 * * *'");
+  });
+
+  it('updates workflow steps during force sync while preserving custom cron schedule', async () => {
+    const manifest = createDefaultManifest('standard');
+    saveManifest(tempDir, manifest);
+    installFleet(tempDir, manifest);
+
+    const autoworkPath = path.join(tempDir, '.github/workflows/autowork-cron.yml');
+    let content = fs.readFileSync(autoworkPath, 'utf8');
+    // Change cron to hourly AND modify a step
+    content = content.replace("cron: '15 */6 * * *'", "cron: '0 * * * *'");
+    content = content.replace('node-version: 22', 'node-version: 18');
+    fs.writeFileSync(autoworkPath, content, 'utf8');
+
+    // Drift check detects modified workflow because node-version drifted
+    const drift = checkDrift(tempDir, manifest);
+    expect(drift.modifiedWorkflows).toContain('autowork-cron.yml');
+
+    // Force sync should update node-version back to 22 but preserve the 0 * * * * cron!
+    await runSync({ force: true, cwd: tempDir });
+    const postSyncContent = fs.readFileSync(autoworkPath, 'utf8');
+    expect(postSyncContent).toContain("- cron: '0 * * * *'");
+    expect(postSyncContent).toContain('node-version: 22');
+
+    const postDrift = checkDrift(tempDir, manifest);
+    expect(postDrift.modifiedWorkflows.length).toBe(0);
+  });
 });

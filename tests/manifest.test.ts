@@ -46,4 +46,18 @@ describe('Manifest generation', () => {
     expect(manifest.telemetry.enabled).toBe(true);
     expect(manifest.telemetry.weeklyTokenBudget).toBe(8_750_000);
   });
+
+  it('supports custom cron schedules in manifest', () => {
+    const manifest = createDefaultManifest('standard');
+    manifest.schedules = {
+      autowork: '0 * * * *',
+      'peer-review': '0 */3 * * *',
+      optimizer: '0 12 * * 0',
+      'sync-fleet': '0 0 * * 1',
+    };
+    expect(manifest.schedules.autowork).toBe('0 * * * *');
+    expect(manifest.schedules['peer-review']).toBe('0 */3 * * *');
+    expect(manifest.schedules.optimizer).toBe('0 12 * * 0');
+    expect(manifest.schedules['sync-fleet']).toBe('0 0 * * 1');
+  });
 });

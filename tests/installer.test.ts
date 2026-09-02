@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { createDefaultManifest } from '../src/lib/manifest.js';
-import { installFleet } from '../src/lib/installer.js';
+import { installFleet, applyWorkflowSchedule, extractWorkflowSchedule, resolveWorkflowSchedule } from '../src/lib/installer.js';
 import { checkDrift } from '../src/lib/diff.js';
 
 describe('Fleet Installer & Drift Detection', () => {
@@ -91,5 +91,49 @@ describe('Fleet Installer & Drift Detection', () => {
 
     const drift = checkDrift(tempDir, manifest);
     expect(drift.modifiedPrompts).toContain('autowork.md');
+  });
+
+  it('correctly extracts, resolves, and applies custom workflow schedules', () => {
+    const rawWorkflow = `name: Test Cron\non:\n  schedule:\n    - cron: '15 */6 * * *'\n  workflow_dispatch:\n`;
+    expect(extractWorkflowSchedule(rawWorkflow)).toBe('15 */6 * * *');
+
+    const updated = applyWorkflowSchedule(rawWorkflow, '0 * * * *');
+    expect(updated).toContain("- cron: '0 * * * *'");
+    expect(extractWorkflowSchedule(updated)).toBe('0 * * * *');
+
+    const manifest = createDefaultManifest('standard');
+    manifest.schedules = {
+      autowork: '0 */2 * * *',
+      'sync-fleet.yml': '0 12 * * 1',
+    };
+
+    expect(resolveWorkflowSchedule('autowork-cron.yml', 'autowork', manifest)).toBe('0 */2 * * *');
+    expect(resolveWorkflowSchedule('sync-fleet.yml', 'sync-fleet', manifest)).toBe('0 12 * * 1');
+
+    // Fallback to existing destination content
+    const customDestContent = `name: Dest Cron\non:\n  schedule:\n    - cron: '30 4 * * *'\n`;
+    const emptyManifest = createDefaultManifest('standard');
+    expect(resolveWorkflowSchedule('issues-housekeeping-cron.yml', 'issues-housekeeping', emptyManifest, customDestContent)).toBe('30 4 * * *');
+  });
+
+  it('installs workflows with custom schedules from manifest', () => {
+    const manifest = createDefaultManifest('standard');
+    manifest.schedules = {
+      autowork: '0 * * * *',
+      'peer-review': '0 */4 * * *',
+    };
+    installFleet(tempDir, manifest);
+
+    const autoworkCronPath = path.join(tempDir, '.github/workflows/autowork-cron.yml');
+    const autoworkCronContent = fs.readFileSync(autoworkCronPath, 'utf8');
+    expect(autoworkCronContent).toContain("- cron: '0 * * * *'");
+
+    const reviewCronPath = path.join(tempDir, '.github/workflows/trigger-review-routine.yml');
+    const reviewCronContent = fs.readFileSync(reviewCronPath, 'utf8');
+    expect(reviewCronContent).toContain("- cron: '0 */4 * * *'");
+
+    const drift = checkDrift(tempDir, manifest);
+    expect(drift.modifiedWorkflows.length).toBe(0);
+    expect(drift.missingWorkflows.length).toBe(0);
   });
 });

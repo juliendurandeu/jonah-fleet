@@ -13,6 +13,16 @@ export interface FleetManifest {
     'product-planning': boolean;
     'analytics-review': boolean;
   };
+  schedules?: {
+    autowork?: string;
+    'peer-review'?: string;
+    optimizer?: string;
+    'issues-housekeeping'?: string;
+    'dependency-update-security-check'?: string;
+    'analytics-review'?: string;
+    'sync-fleet'?: string;
+    [key: string]: string | undefined;
+  };
   skills: string[];
   repositories?: string[];
   autoUpdate?: {
@@ -104,6 +114,15 @@ export const ROUTINE_TO_WORKFLOW_MAP: Record<keyof FleetManifest['routines'], st
   'dependency-update-security-check': ['dependency-check-cron.yml'],
   'product-planning': [],
   'analytics-review': [],
+};
+
+export const WORKFLOW_TO_ROUTINE_MAP: Record<string, keyof FleetManifest['routines'] | 'sync-fleet'> = {
+  'autowork-cron.yml': 'autowork',
+  'trigger-review-routine.yml': 'peer-review',
+  'prompt-optimizer-cron.yml': 'optimizer',
+  'issues-housekeeping-cron.yml': 'issues-housekeeping',
+  'dependency-check-cron.yml': 'dependency-update-security-check',
+  'sync-fleet.yml': 'sync-fleet',
 };
 
 export const FLEET_VERSION = '1.2.0';

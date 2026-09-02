@@ -70,6 +70,7 @@ b. **Eligible → claim, then implement.** Call `get_me` once to learn your own 
 3a. **Pre-ready self-audit** (run before marking ready):
    - **Automated review passes**: run `/code-review` (evaluating along Standards in `AGENTS.md` and Spec in the issue's `## Tasks`) and security review over the diff. Fix what they flag.
    - **Repository conventions scan**: read and verify all rules and conventions specified in `AGENTS.md` (or `CLAUDE.md`/`GEMINI.md`), project-level skills in `.agents/skills/`, and project documentation.
+   - **Design System & Viewport Pre-flight** (for frontend/UI diffs): self-audit diffs against design tokens (no arbitrary class overrides), WCAG AA 4.5:1 contrast ratios on dark/light surfaces, single primary CTA hierarchy per screen, and mobile viewport crowding (avoid stacked nudges/banners above the fold at ~390px).
    - **Documentation accuracy**: update relevant docs (`ARCHITECTURE.md`, `CODEMAP.md`, `API.md`, `CHANGELOG.md` if maintained by repo).
    - **Build & type-check verification**: run the repository's test, type-check, and lint commands from `AGENTS.md` (e.g. `npm test`, `npm run type-check`, `npm run lint`, `pytest`, `cargo test`). Confirm zero errors and zero test failures.
    - **Clean-merge gate**: verify `git merge-tree origin/main HEAD` reports no conflicts.

@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Design System & Telemetry Friction Guardrails in Core Routines:
+  - Added Design System & Viewport Density Pass to `peer-review.md` (`templates/prompts/peer-review.md` & `.github/prompts/peer-review.md`) enforcing Token Purity, WCAG AA 4.5:1 contrast ratios, single primary CTA hierarchy, and mobile viewport budget checks on UI diffs (#49).
+  - Added Design System & Viewport Pre-flight to `autowork.md` (`templates/prompts/autowork.md` & `.github/prompts/autowork.md`) in Pre-ready self-audit (#49).
+  - Added UI Friction & Nudge Fatigue Guardrail to `analytics-review.md` (`templates/prompts/analytics-review.md` & `.github/prompts/analytics-review.md`) to aggregate component-level `$rageclick` events and flag low-conversion promotional elements (500+ impressions, CTR < 2.0%) (#49).
+  - Documented Design System & UI Guardrails in `templates/docs/AGENTS.template.md` and `AGENTS.md` (#49).
 - Custom Cron Schedules & Sync Preservation: Added `schedules` configuration support in `agents-manifest.json` and `schema.json` for routines (`autowork`, `peer-review`, `optimizer`, `issues-housekeeping`, `dependency-update-security-check`, `analytics-review`, `sync-fleet`). Enhanced `installFleet()` and `checkDrift()` to dynamically inject configured schedules, preserve existing local workflow cron triggers, and prevent false-positive drift on synchronizations (#47).
 - Analytics Review Routine (`templates/prompts/analytics-review.md` & `.github/prompts/analytics-review.md`): Evaluates active and scheduled measurement trackers against product metrics, user adoption, and conversion funnels. Requires mandatory structured action directives (`RECOMMENDATION: [PIVOT | DEPRECATE | ITERATE]`) upon measurement closure to bridge outcomes directly into product planning (#28).
 - Feature Pruning & Deprecation Audit in Product Planning (`templates/prompts/product-planning.md` & `.github/prompts/product-planning.md`): Audits shipped features and closed measurement tracker verdicts in Propose mode for low-ROI / high-maintenance features (<2% adoption, >50% failure rate) and drafts deprecation / simplification proposals (#28).

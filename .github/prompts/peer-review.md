@@ -84,8 +84,13 @@ Check if `$PR_NUMBER` is set:
    - **Standards**: Conformance to `AGENTS.md` (or `CLAUDE.md`/`GEMINI.md`), conventions, and architecture.
    - **Spec Compliance**: Verification against the linked issue's deliverables (`## Tasks`), or against the PR description's summary/changes if no tracking issue is linked.
 2. Run Security Pass: auth gates, permission checks, injection risks, sensitive credentials.
-3. If PR modifies rendered UI, verify screenshots or visual components if tooling/scripts are available.
-4. Run repository verification commands (tests, type-check) if CI status is unconfirmed.
+3. **Design System & Viewport Density Pass** (if PR modifies frontend/rendered UI):
+   - **Token Purity**: Check for arbitrary CSS/Tailwind sizing overrides (e.g. `text-[...px]`, `w-[...px]`) or bespoke button styling bypassing standard design system tokens.
+   - **WCAG AA Contrast**: Enforce minimum 4.5:1 contrast on readable text (e.g. `text-gray-400` minimum on dark surfaces; avoid muted unreadable text).
+   - **CTA Hierarchy**: Verify at most one primary forward CTA (`.btn-primary`) per active screen/tab.
+   - **Mobile Viewport Budget**: Verify that new banners, nudges, or sticky elements do not stack concurrently above the fold on mobile viewports (~390px).
+4. If PR modifies rendered UI, verify screenshots or visual components if tooling/scripts are available.
+5. Run repository verification commands (tests, type-check) if CI status is unconfirmed.
 
 ### Step 5: Classify Findings & Make Decision
 

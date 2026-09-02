@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Registered `analytics-review` in `schema.json`, `src/lib/presets.ts`, `src/lib/manifest.ts`, and `full` preset bundle (#28).
 
 ### Changed
+- Upgraded development dependency `@types/node` from `22.20.1` to `^26.4.0` (#41).
 - Upgraded development dependency `typescript` from `5.9.3` to `^7.0.2`, configured `"types": ["node"]` in `tsconfig.json`, and configured `tsc` declaration emit (#40).
 - Upgraded production dependency `commander` from `12.1.0` to `^15.0.0` (#39).
 

@@ -60,6 +60,13 @@ To trigger the Autowork routine manually on any specific issue, use the GitHub A
 [![Trigger Autowork](https://img.shields.io/badge/Autowork-Run_Targeted-blue?style=for-the-badge&logo=githubactions)](https://github.com/juliendurandeu/jonah-fleet/actions/workflows/trigger-autowork-manual.yml)
 ```
 
+## Design System & UI Guardrails
+
+- **Design Token Purity**: Adhere strictly to project-defined design tokens and CSS/Tailwind utilities. Avoid arbitrary sizing or bespoke button styling.
+- **Accessibility & Contrast**: Verify WCAG AA 4.5:1 minimum contrast on all readable text surfaces.
+- **CTA & Visual Hierarchy**: Maintain a single primary forward CTA per view/tab to prevent decision fatigue.
+- **Viewport Density & Nudge Budget**: Prevent visual crowding by ensuring persistent banners, cards, or nudges do not stack concurrently above the fold on mobile viewports (~390px).
+
 ## Security Guidelines
 
 - Zero hardcoded secrets, API keys, or tokens in source code or template prompts.

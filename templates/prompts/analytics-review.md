@@ -11,6 +11,7 @@ The run is SUCCESS only if ALL of these are true:
 - [ ] Scanned all open measurement tracking issues (`measurement/*`, `telemetry/*`, or CTA/feature adoption trackers)
 - [ ] For conclusive measurement issues: synthesized adoption metrics (CTR, conversion rate, error frequency) against defined success criteria
 - [ ] For sub-threshold features (<2% user adoption or >50% failure rate) or conclusive outcomes, outputted a structured directive: `RECOMMENDATION: [PIVOT | DEPRECATE | ITERATE]`
+- [ ] Evaluated UI friction signals (grouping `$rageclick` by URL and element) and applied the Nudge & Banner Fatigue rule for promotional elements exceeding 500 impressions with CTR < 2.0%
 - [ ] Staged the recommendation directly into the current/next `🗺️ Product Plan` staging issue or filed an actionable `roadmap/*` issue for `product-planning` to review
 - [ ] Closed resolved measurement trackers with full analysis summaries and Antigravity run footer
 
@@ -46,6 +47,15 @@ If any criterion cannot be met, stop immediately and log FAILURE with the reason
    - Failure / error rates during user interaction
 2. Identify whether low conversion stems from technical defects or lack of user intent:
    - If feature renders correctly without runtime errors but adoption is <2%, classify as **low user intent**.
+
+### Step 2.5: UI Friction & Nudge Fatigue Guardrail
+
+1. **Component-Level Rage Clicks**:
+   - Group `$rageclick` events by URL and element selector/text to pinpoint unclickable, misleading, or confusing UI components causing user friction.
+   - For UI elements generating recurring rage clicks, file or stage an actionable UX bug/redesign recommendation for `product-planning`.
+2. **Nudge & Banner Fatigue Rule**:
+   - Audit persistent promotional banners, cards, and nudges across active screens.
+   - Alert (P2) and mandate `RECOMMENDATION: DEPRECATE` or `RECOMMENDATION: PIVOT` if any persistent promotional banner/card exceeds 500 impressions in a 14-day window with an impression-to-action CTR < 2.0%, flagging it for consolidation, throttling, or clean removal to prevent visual crowding.
 
 ### Step 3: Emit mandatory Post-Measurement Action Directive
 

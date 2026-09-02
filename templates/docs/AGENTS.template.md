@@ -55,6 +55,13 @@ To trigger the Autowork routine manually on any specific issue, use the GitHub A
 [![Trigger Autowork](https://img.shields.io/badge/Autowork-Run_Targeted-blue?style=for-the-badge&logo=githubactions)](https://github.com/OWNER/REPO/actions/workflows/trigger-autowork-manual.yml)
 ```
 
+## Design System & UI Guardrails
+
+- **Design Token Purity**: Use standard design system tokens and scale classes. Avoid arbitrary values (e.g. `text-[...px]`, `w-[...px]`) and bespoke inline overrides.
+- **Accessibility & Contrast**: Enforce WCAG AA 4.5:1 minimum text contrast across light and dark themes (e.g. avoid unreadable low-contrast text on dark backgrounds).
+- **CTA & Visual Hierarchy**: Maintain at most one primary forward action button (`.btn-primary`) per view/tab to prevent choice paralysis.
+- **Viewport Density & Nudge Budget**: Ensure banners, nudges, and sticky elements do not stack concurrently or crowd mobile viewports (~390px above the fold).
+
 ## Security Guidelines
 
 - Auth boundaries required for all sensitive mutations.

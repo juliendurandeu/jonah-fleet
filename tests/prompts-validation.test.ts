@@ -187,6 +187,43 @@ describe('Prompt Validation & Invariants', () => {
     expect(content).toContain('RECOMMENDATION: [PIVOT | DEPRECATE | ITERATE]');
   });
 
+  it('validates peer-review.md, autowork.md, and analytics-review.md define Design System & Telemetry Friction Guardrails', () => {
+    const peerReviewPath = path.join(promptsDir, 'peer-review.md');
+    const peerReviewContent = fs.readFileSync(peerReviewPath, 'utf8');
+    expect(peerReviewContent).toContain('Design System & Viewport Density Pass');
+    expect(peerReviewContent).toContain('Token Purity');
+    expect(peerReviewContent).toContain('WCAG AA Contrast');
+    expect(peerReviewContent).toContain('CTA Hierarchy');
+    expect(peerReviewContent).toContain('Mobile Viewport Budget');
+
+    const autoworkPath = path.join(promptsDir, 'autowork.md');
+    const autoworkContent = fs.readFileSync(autoworkPath, 'utf8');
+    expect(autoworkContent).toContain('Design System & Viewport Pre-flight');
+    expect(autoworkContent).toMatch(/WCAG AA/i);
+    expect(autoworkContent).toMatch(/design tokens/i);
+
+    const analyticsPath = path.join(promptsDir, 'analytics-review.md');
+    const analyticsContent = fs.readFileSync(analyticsPath, 'utf8');
+    expect(analyticsContent).toContain('UI Friction & Nudge Fatigue Guardrail');
+    expect(analyticsContent).toMatch(/\$rageclick/i);
+    expect(analyticsContent).toMatch(/500 impressions/i);
+    expect(analyticsContent).toMatch(/< 2\.0%|<2%/);
+  });
+
+  it('validates AGENTS.template.md and AGENTS.md document Design System & UI Guardrails', () => {
+    const templateDocPath = path.join(templatesDir, 'docs', 'AGENTS.template.md');
+    const templateDocContent = fs.readFileSync(templateDocPath, 'utf8');
+    expect(templateDocContent).toContain('Design System & UI Guardrails');
+    expect(templateDocContent).toContain('Design Token Purity');
+    expect(templateDocContent).toContain('Accessibility & Contrast');
+    expect(templateDocContent).toContain('CTA & Visual Hierarchy');
+    expect(templateDocContent).toContain('Viewport Density & Nudge Budget');
+
+    const agentsPath = path.resolve(process.cwd(), 'AGENTS.md');
+    const agentsContent = fs.readFileSync(agentsPath, 'utf8');
+    expect(agentsContent).toContain('Design System & UI Guardrails');
+  });
+
   it('ensures prompt templates in templates/prompts are strictly synchronized with .github/prompts', () => {
     const githubPromptsDir = path.resolve(process.cwd(), '.github', 'prompts');
     expect(fs.existsSync(githubPromptsDir)).toBe(true);

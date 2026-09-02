@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { getTemplatesDir } from './installer.js';
+import { getTemplatesDir, resolveWorkflowSchedule, applyWorkflowSchedule } from './installer.js';
 import { FleetManifest, ROUTINE_TO_WORKFLOW_MAP } from './presets.js';
 
 export interface DriftReport {
@@ -56,8 +56,31 @@ export function checkDrift(targetDir: string, manifest: FleetManifest): DriftRep
       const wfDest = path.join(targetWorkflowsDir, workflowFile);
       if (!fs.existsSync(wfDest)) {
         report.missingWorkflows.push(workflowFile);
-      } else if (fs.existsSync(wfSrc) && fs.readFileSync(wfSrc, 'utf8') !== fs.readFileSync(wfDest, 'utf8')) {
-        report.modifiedWorkflows.push(workflowFile);
+      } else if (fs.existsSync(wfSrc)) {
+        const rawSrc = fs.readFileSync(wfSrc, 'utf8');
+        const destContent = fs.readFileSync(wfDest, 'utf8');
+        const schedule = resolveWorkflowSchedule(workflowFile, routineName, manifest, destContent);
+        const expectedSrc = applyWorkflowSchedule(rawSrc, schedule);
+        if (expectedSrc !== destContent) {
+          report.modifiedWorkflows.push(workflowFile);
+        }
+      }
+    }
+  }
+
+  // Check sync workflow if autoUpdate is enabled
+  if (manifest.autoUpdate?.enabled) {
+    const syncWfSrc = path.join(templatesDir, 'workflows/sync-fleet.yml');
+    const syncWfDest = path.join(targetWorkflowsDir, 'sync-fleet.yml');
+    if (!fs.existsSync(syncWfDest)) {
+      report.missingWorkflows.push('sync-fleet.yml');
+    } else if (fs.existsSync(syncWfSrc)) {
+      const rawSrc = fs.readFileSync(syncWfSrc, 'utf8');
+      const destContent = fs.readFileSync(syncWfDest, 'utf8');
+      const schedule = resolveWorkflowSchedule('sync-fleet.yml', 'sync-fleet', manifest, destContent);
+      const expectedSrc = applyWorkflowSchedule(rawSrc, schedule);
+      if (expectedSrc !== destContent) {
+        report.modifiedWorkflows.push('sync-fleet.yml');
       }
     }
   }

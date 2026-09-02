@@ -36,6 +36,20 @@
       "items": { "type": "string" },
       "description": "List of core engineering skills to install/sync"
     },
+    "schedules": {
+      "type": "object",
+      "properties": {
+        "autowork": { "type": "string", "description": "Custom cron schedule for autowork (e.g. '0 * * * *')" },
+        "peer-review": { "type": "string", "description": "Custom cron schedule for peer-review watchdog" },
+        "optimizer": { "type": "string", "description": "Custom cron schedule for prompt optimizer" },
+        "issues-housekeeping": { "type": "string", "description": "Custom cron schedule for issues housekeeping" },
+        "dependency-update-security-check": { "type": "string", "description": "Custom cron schedule for dependency security checks" },
+        "analytics-review": { "type": "string", "description": "Custom cron schedule for analytics review" },
+        "sync-fleet": { "type": "string", "description": "Custom cron schedule for fleet sync" }
+      },
+      "additionalProperties": { "type": "string" },
+      "description": "Custom cron schedules per routine or workflow"
+    },
     "repositories": {
       "type": "array",
       "items": { "type": "string" },

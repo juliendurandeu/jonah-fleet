@@ -28,6 +28,56 @@ export interface InstallOptions {
   detectedStack?: DetectedStack;
 }
 
+/**
+ * Replaces the first `- cron: '...'` or `- cron: "..."` inside a workflow file with the given custom cron expression.
+ */
+export function applyWorkflowSchedule(content: string, customCron?: string): string {
+  if (!customCron) return content;
+  return content.replace(
+    /(-\s*cron:\s*['"])([^'"]+)(['"])/,
+    `$1${customCron}$3`
+  );
+}
+
+/**
+ * Extracts the cron expression from a workflow content string if present.
+ */
+export function extractWorkflowSchedule(content: string): string | null {
+  const match = content.match(/-\s*cron:\s*['"]([^'"]+)['"]/);
+  return match ? match[1] : null;
+}
+
+/**
+ * Resolves the desired schedule for a workflow according to manifest preferences or existing target file content.
+ */
+export function resolveWorkflowSchedule(
+  workflowFile: string,
+  routineName: string | undefined,
+  manifest: FleetManifest,
+  destContent?: string
+): string | undefined {
+  // 1. Explicit manifest schedules by routineName
+  if (routineName && manifest.schedules?.[routineName]) {
+    return manifest.schedules[routineName];
+  }
+  // 2. Explicit manifest schedules by workflow filename or basename
+  if (manifest.schedules?.[workflowFile]) {
+    return manifest.schedules[workflowFile];
+  }
+  const baseName = workflowFile.replace(/\.(yml|yaml)$/, '');
+  if (manifest.schedules?.[baseName]) {
+    return manifest.schedules[baseName];
+  }
+  // 3. Existing destination content preservation (local custom cron)
+  if (destContent) {
+    const existingCron = extractWorkflowSchedule(destContent);
+    if (existingCron) {
+      return existingCron;
+    }
+  }
+  return undefined;
+}
+
 export function installFleet(targetDir: string, manifest: FleetManifest, options: InstallOptions = {}): InstallResult {
   const templatesDir = getTemplatesDir();
   const result: InstallResult = {
@@ -80,7 +130,11 @@ export function installFleet(targetDir: string, manifest: FleetManifest, options
       const wfDest = path.join(targetWorkflowsDir, workflowFile);
       if (fs.existsSync(wfSrc)) {
         if (!fs.existsSync(wfDest) || options.force) {
-          fs.copyFileSync(wfSrc, wfDest);
+          const rawContent = fs.readFileSync(wfSrc, 'utf8');
+          const destContent = fs.existsSync(wfDest) ? fs.readFileSync(wfDest, 'utf8') : undefined;
+          const schedule = resolveWorkflowSchedule(workflowFile, routineName, manifest, destContent);
+          const finalContent = applyWorkflowSchedule(rawContent, schedule);
+          fs.writeFileSync(wfDest, finalContent, 'utf8');
           result.workflowsInstalled.push(workflowFile);
         }
       }
@@ -93,7 +147,11 @@ export function installFleet(targetDir: string, manifest: FleetManifest, options
     const syncWfDest = path.join(targetWorkflowsDir, 'sync-fleet.yml');
     if (fs.existsSync(syncWfSrc)) {
       if (!fs.existsSync(syncWfDest) || options.force) {
-        fs.copyFileSync(syncWfSrc, syncWfDest);
+        const rawContent = fs.readFileSync(syncWfSrc, 'utf8');
+        const destContent = fs.existsSync(syncWfDest) ? fs.readFileSync(syncWfDest, 'utf8') : undefined;
+        const schedule = resolveWorkflowSchedule('sync-fleet.yml', 'sync-fleet', manifest, destContent);
+        const finalContent = applyWorkflowSchedule(rawContent, schedule);
+        fs.writeFileSync(syncWfDest, finalContent, 'utf8');
         result.workflowsInstalled.push('sync-fleet.yml');
       }
     }

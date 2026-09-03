@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Features
 
+* **daemon:** extract reviewable PR filter helper and add unit tests for queue draining ([#66](https://github.com/juliendurandeu/jonah-fleet/issues/66))
 * **daemon:** display target PR/issue ID & title and wrap terminal card lines without cropping
 * **autowork:** single-flight PR claim protocol in Phase 1 convergence to prevent daemon race conditions on bounced PRs
 * **autowork:** add selective server-side issue querying to prevent tool buffer truncation ([#54](https://github.com/juliendurandeu/jonah-fleet/issues/54)) ([e85958b](https://github.com/juliendurandeu/jonah-fleet/commit/e85958bc9129b16af170961a0ae85ff91211ec85))

@@ -9,6 +9,8 @@ import {
   clearDaemonState,
   isDaemonRunning,
   DaemonState,
+  filterReviewablePRs,
+  drainReviewQueue,
 } from '../src/lib/daemon.js';
 
 describe('Local Agent Daemon Manager', () => {
@@ -108,7 +110,7 @@ describe('Local Agent Daemon Manager', () => {
     expect(opts.reviewInterval).toBe(5);
   });
 
-  it('correctly filters out automated release PRs and retains feature/fix PRs', () => {
+  it('correctly filters out automated release PRs and retains feature/fix PRs via filterReviewablePRs', () => {
     const rawPRs = [
       { number: 10, headRefName: 'feat/my-feature', title: 'feat: add awesome feature' },
       { number: 11, headRefName: 'release-please--branches--main', title: 'chore(main): release 1.0.0' },
@@ -116,14 +118,125 @@ describe('Local Agent Daemon Manager', () => {
       { number: 13, headRefName: 'chore/release-helper', title: 'chore(main): release 2.0.0' },
     ];
 
-    const filtered = rawPRs.filter(
-      (pr) =>
-        pr &&
-        typeof pr.number === 'number' &&
-        !pr.headRefName?.startsWith('release-please--') &&
-        !pr.title?.startsWith('chore(main): release')
-    );
-
+    const filtered = filterReviewablePRs(rawPRs);
     expect(filtered.map((p) => p.number)).toEqual([10, 12]);
+    expect(filterReviewablePRs([])).toEqual([]);
+    expect(filterReviewablePRs(null as any)).toEqual([]);
+  });
+
+  describe('drainReviewQueue', () => {
+    it('does not invoke peer-review routine when 0 reviewable PRs exist', async () => {
+      let runRoutineCalled = false;
+      await drainReviewQueue({
+        repoRoot: tmpRepo,
+        getPRs: async () => [],
+        runRoutine: async () => {
+          runRoutineCalled = true;
+          return { success: true };
+        },
+      });
+
+      expect(runRoutineCalled).toBe(false);
+    });
+
+    it('drains review queue across multiple candidates and tracks attempted PR numbers', async () => {
+      const prs = [
+        { number: 101, headRefName: 'feat/pr-1', title: 'feat: first pr' },
+        { number: 102, headRefName: 'feat/pr-2', title: 'feat: second pr' },
+      ];
+
+      const attempted: number[] = [];
+      const executedTargets: string[] = [];
+
+      let prQueue = [...prs];
+
+      await drainReviewQueue({
+        repoRoot: tmpRepo,
+        getPRs: async () => prQueue,
+        runRoutine: async (opts) => {
+          opts.onTargetDetected?.(`PR #${prQueue[0].number}`);
+          executedTargets.push(`PR #${prQueue[0].number}`);
+          // Simulate PR 101 being processed and removed from open PRs
+          prQueue = prQueue.slice(1);
+          return { success: true };
+        },
+        onAttempted: (prNum) => {
+          attempted.push(prNum);
+        },
+      });
+
+      expect(executedTargets).toEqual(['PR #101', 'PR #102']);
+      expect(attempted).toEqual([101, 102]);
+    });
+
+    it('stops review queue draining immediately when isStopping returns true', async () => {
+      const prs = [
+        { number: 201, headRefName: 'feat/pr-201', title: 'feat: pr 201' },
+        { number: 202, headRefName: 'feat/pr-202', title: 'feat: pr 202' },
+      ];
+
+      let isStopping = false;
+      const executed: number[] = [];
+
+      await drainReviewQueue({
+        repoRoot: tmpRepo,
+        isStopping: () => isStopping,
+        getPRs: async () => prs,
+        runRoutine: async () => {
+          executed.push(201);
+          isStopping = true; // Signal stopping after first execution
+          return { success: true };
+        },
+      });
+
+      expect(executed).toEqual([201]);
+    });
+
+    it('handles routine error gracefully and continues to evaluate remaining candidates', async () => {
+      const prs = [
+        { number: 301, headRefName: 'feat/failing-pr', title: 'feat: will fail' },
+        { number: 302, headRefName: 'feat/passing-pr', title: 'feat: will succeed' },
+      ];
+
+      const attempted: number[] = [];
+      let prQueue = [...prs];
+
+      await drainReviewQueue({
+        repoRoot: tmpRepo,
+        getPRs: async () => prQueue,
+        runRoutine: async (opts) => {
+          const current = prQueue[0];
+          opts.onTargetDetected?.(`PR #${current.number}`);
+          prQueue = prQueue.slice(1);
+
+          if (current.number === 301) {
+            throw new Error('Simulation of peer-review crash');
+          }
+          return { success: true };
+        },
+        onAttempted: (prNum) => {
+          attempted.push(prNum);
+        },
+      });
+
+      expect(attempted).toEqual([301, 302]);
+    });
+
+    it('prevents infinite loop if a PR remains in ready list without progress', async () => {
+      const persistentPR = [{ number: 401, headRefName: 'feat/stuck', title: 'feat: stuck in ready' }];
+
+      let runCount = 0;
+      await drainReviewQueue({
+        repoRoot: tmpRepo,
+        getPRs: async () => persistentPR, // PR never gets removed from list
+        runRoutine: async () => {
+          runCount++;
+          return { success: false, exitCode: 1 };
+        },
+      });
+
+      // Should execute exactly once and not loop infinitely because attemptedPRNumbers tracks #401
+      expect(runCount).toBe(1);
+    });
   });
 });

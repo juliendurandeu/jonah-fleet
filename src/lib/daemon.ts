@@ -84,6 +84,20 @@ export interface ReviewablePR {
 }
 
 /**
+ * Filters a list of pull requests to include only reviewable PRs,
+ * excluding automated release-please branches and release PR titles.
+ */
+export function filterReviewablePRs(prs: ReviewablePR[]): ReviewablePR[] {
+  return (prs || []).filter(
+    (pr) =>
+      pr &&
+      typeof pr.number === 'number' &&
+      !pr.headRefName?.startsWith('release-please--') &&
+      !pr.title?.startsWith('chore(main): release')
+  );
+}
+
+/**
  * Fast pre-flight check to query open ready PRs in ~100ms with 0 token cost,
  * excluding drafts, automated release-please branches, and release PR titles.
  */
@@ -95,13 +109,7 @@ export async function getOpenReviewablePRs(repoRoot: string): Promise<Reviewable
       { cwd: repoRoot }
     );
     const prs = JSON.parse(stdout) as ReviewablePR[];
-    return prs.filter(
-      (pr) =>
-        pr &&
-        typeof pr.number === 'number' &&
-        !pr.headRefName?.startsWith('release-please--') &&
-        !pr.title?.startsWith('chore(main): release')
-    );
+    return filterReviewablePRs(prs);
   } catch {
     return [];
   }
@@ -192,6 +200,130 @@ export async function stopDaemon(repoRoot: string): Promise<boolean> {
   }
 }
 
+export interface DrainReviewQueueOptions {
+  repoRoot: string;
+  state?: DaemonState;
+  options?: DaemonOptions;
+  isStopping?: () => boolean;
+  clearTicker?: () => void;
+  getPRs?: (repoRoot: string) => Promise<ReviewablePR[]>;
+  runRoutine?: (opts: any) => Promise<{ success: boolean; exitCode?: number }>;
+  onAttempted?: (prNumber: number) => void;
+}
+
+/**
+ * Sequentially drains all open reviewable PRs by executing peer-review in isolated worktrees.
+ * Tracks attempted PRs per pass to prevent infinite loops on stalled or repeatedly unmerged PRs.
+ */
+export async function drainReviewQueue(drainOptions: DrainReviewQueueOptions): Promise<void> {
+  const {
+    repoRoot,
+    state,
+    options = {},
+    isStopping = () => false,
+    clearTicker,
+    getPRs = getOpenReviewablePRs,
+    runRoutine = runLocalRoutine,
+    onAttempted,
+  } = drainOptions;
+
+  if (isStopping()) return;
+  if (state) {
+    state.lastReviewCheckAt = new Date().toISOString();
+    writeDaemonState(repoRoot, state);
+  }
+
+  let reviewablePRs = await getPRs(repoRoot);
+
+  if (reviewablePRs.length === 0) {
+    if (options.verbose) {
+      console.log(pc.dim(`[${new Date().toLocaleTimeString()}] Peer Review Watchdog: 0 ready PRs found (0 tokens used).`));
+    }
+    return;
+  }
+
+  const attemptedPRNumbers = new Set<number>();
+
+  while (!isStopping() && reviewablePRs.length > 0) {
+    const candidatePRs = reviewablePRs.filter((pr) => !attemptedPRNumbers.has(pr.number));
+    if (candidatePRs.length === 0) {
+      if (options.verbose) {
+        console.log(
+          pc.dim(
+            `[${new Date().toLocaleTimeString()}] All ${reviewablePRs.length} remaining ready PR(s) were already evaluated in this drain pass.`
+          )
+        );
+      }
+      break;
+    }
+
+    const totalRemaining = candidatePRs.length;
+    let targetPRStr: string | undefined = undefined;
+
+    try {
+      if (clearTicker) clearTicker();
+      if (state) {
+        state.status = 'working';
+        state.activeRoutine = 'peer-review';
+        writeDaemonState(repoRoot, state);
+      }
+
+      console.log(
+        pc.cyan(
+          `\n[${new Date().toLocaleTimeString()}] 🔍 Peer Review Watchdog: Draining PR backlog (${totalRemaining} PR(s) remaining). Starting review session...`
+        )
+      );
+      await cleanupStaleWorktrees(repoRoot);
+
+      const result = await runRoutine({
+        targetDir: repoRoot,
+        routine: 'peer-review',
+        model: options.model,
+        verbose: options.verbose,
+        noWorktree: false,
+        onTargetDetected: (target: string) => {
+          targetPRStr = target;
+          if (state) {
+            state.activeTarget = target;
+            writeDaemonState(repoRoot, state);
+          }
+        },
+      });
+
+      // Record attempted PR number from detected target or candidate list
+      const activeTargetStr = targetPRStr as string | undefined;
+      const match = activeTargetStr?.match(/PR\s*#?([0-9]+)/i);
+      const prNum = match ? parseInt(match[1], 10) : candidatePRs[0]?.number;
+      if (typeof prNum === 'number') {
+        attemptedPRNumbers.add(prNum);
+        onAttempted?.(prNum);
+      }
+
+      if (result.success) {
+        console.log(pc.green(`✓ Local peer-review completed successfully.\n`));
+      } else {
+        console.warn(pc.yellow(`⚠️  Local peer-review completed with code ${result.exitCode}.\n`));
+      }
+    } catch (err: any) {
+      console.error(pc.red(`✗ Error in peer-review: ${err.message}`));
+      if (candidatePRs[0]) {
+        attemptedPRNumbers.add(candidatePRs[0].number);
+        onAttempted?.(candidatePRs[0].number);
+      }
+    } finally {
+      if (state) {
+        state.status = 'idle';
+        state.activeRoutine = undefined;
+        state.activeTarget = undefined;
+        writeDaemonState(repoRoot, state);
+      }
+    }
+
+    // Re-query reviewable PRs after session
+    reviewablePRs = await getPRs(repoRoot);
+  }
+}
+
 /**
  * Runs the multi-cadence polling daemon loop in the current process.
  */
@@ -266,102 +398,24 @@ export async function runDaemonLoop(repoRoot: string, options: DaemonOptions = {
   process.once('SIGINT', handleStop);
   process.once('SIGTERM', handleStop);
 
-  const drainReviewQueue = async (): Promise<void> => {
+  const performReviewDrain = async (): Promise<void> => {
     if (isStopping || isWorking) return;
-    state.lastReviewCheckAt = new Date().toISOString();
-    writeDaemonState(repoRoot, state);
-
-    let reviewablePRs = await getOpenReviewablePRs(repoRoot);
-    lastOpenPRCount = reviewablePRs.length;
-
-    if (reviewablePRs.length === 0) {
-      if (options.verbose) {
-        console.log(pc.dim(`[${new Date().toLocaleTimeString()}] Peer Review Watchdog: 0 ready PRs found (0 tokens used).`));
-      }
+    try {
+      isWorking = true;
+      await drainReviewQueue({
+        repoRoot,
+        state,
+        options,
+        isStopping: () => isStopping,
+        clearTicker,
+      });
+      const prs = await getOpenReviewablePRs(repoRoot);
+      lastOpenPRCount = prs.length;
+    } finally {
+      isWorking = false;
       nextReviewCheckTime = Date.now() + reviewIntervalMs;
       updateTicker();
-      return;
     }
-
-    const attemptedPRNumbers = new Set<number>();
-
-    while (!isStopping && reviewablePRs.length > 0) {
-      const candidatePRs = reviewablePRs.filter((pr) => !attemptedPRNumbers.has(pr.number));
-      if (candidatePRs.length === 0) {
-        if (options.verbose) {
-          console.log(
-            pc.dim(
-              `[${new Date().toLocaleTimeString()}] All ${reviewablePRs.length} remaining ready PR(s) were already evaluated in this drain pass.`
-            )
-          );
-        }
-        break;
-      }
-
-      const totalRemaining = candidatePRs.length;
-      let targetPRStr: string | undefined = undefined;
-
-      try {
-        isWorking = true;
-        clearTicker();
-        state.status = 'working';
-        state.activeRoutine = 'peer-review';
-        writeDaemonState(repoRoot, state);
-
-        console.log(
-          pc.cyan(
-            `\n[${new Date().toLocaleTimeString()}] 🔍 Peer Review Watchdog: Draining PR backlog (${totalRemaining} PR(s) remaining). Starting review session...`
-          )
-        );
-        await cleanupStaleWorktrees(repoRoot);
-
-        const result = await runLocalRoutine({
-          targetDir: repoRoot,
-          routine: 'peer-review',
-          model: options.model,
-          verbose: options.verbose,
-          noWorktree: false,
-          onTargetDetected: (target) => {
-            targetPRStr = target;
-            state.activeTarget = target;
-            writeDaemonState(repoRoot, state);
-          },
-        });
-
-        // Record attempted PR number from detected target or candidate list
-        const activeTargetStr = targetPRStr as string | undefined;
-        const match = activeTargetStr?.match(/PR\s*#?([0-9]+)/i);
-        if (match) {
-          attemptedPRNumbers.add(parseInt(match[1], 10));
-        } else if (candidatePRs[0]) {
-          attemptedPRNumbers.add(candidatePRs[0].number);
-        }
-
-        if (result.success) {
-          console.log(pc.green(`✓ Local peer-review completed successfully.\n`));
-        } else {
-          console.warn(pc.yellow(`⚠️  Local peer-review completed with code ${result.exitCode}.\n`));
-        }
-      } catch (err: any) {
-        console.error(pc.red(`✗ Error in peer-review: ${err.message}`));
-        if (candidatePRs[0]) {
-          attemptedPRNumbers.add(candidatePRs[0].number);
-        }
-      } finally {
-        isWorking = false;
-        state.status = 'idle';
-        state.activeRoutine = undefined;
-        state.activeTarget = undefined;
-        writeDaemonState(repoRoot, state);
-      }
-
-      // Re-query reviewable PRs after session
-      reviewablePRs = await getOpenReviewablePRs(repoRoot);
-      lastOpenPRCount = reviewablePRs.length;
-    }
-
-    nextReviewCheckTime = Date.now() + reviewIntervalMs;
-    updateTicker();
   };
 
   const runAutoworkCheck = async (): Promise<void> => {
@@ -376,7 +430,7 @@ export async function runDaemonLoop(repoRoot: string, options: DaemonOptions = {
             `\n[${new Date().toLocaleTimeString()}] ⏳ Autowork paused: draining ${pendingPRs} reviewable PR(s) first...`
           )
         );
-        await drainReviewQueue();
+        await performReviewDrain();
 
         const remainingPRs = await countOpenReadyPRs(repoRoot);
         if (remainingPRs > 0) {
@@ -442,7 +496,7 @@ export async function runDaemonLoop(repoRoot: string, options: DaemonOptions = {
               `\n[${new Date().toLocaleTimeString()}] 🔄 Post-autowork convergence: Found ${newPRCount} ready PR(s). Initiating review sweep...`
             )
           );
-          await drainReviewQueue();
+          await performReviewDrain();
         }
       }
     }
@@ -450,14 +504,14 @@ export async function runDaemonLoop(repoRoot: string, options: DaemonOptions = {
 
   // Run initial checks on start: drain review queue first, then move to autowork
   if (routines.includes('peer-review')) {
-    await drainReviewQueue();
+    await performReviewDrain();
   }
   if (!isStopping && routines.includes('autowork')) {
     await runAutoworkCheck();
   }
 
   // Set up decoupled timers
-  const reviewTimer = setInterval(drainReviewQueue, reviewIntervalMs);
+  const reviewTimer = setInterval(performReviewDrain, reviewIntervalMs);
   const autoworkTimer = setInterval(runAutoworkCheck, autoworkIntervalMs);
 
   // Keep process alive

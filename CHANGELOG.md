@@ -5,6 +5,47 @@ All notable changes to `jonah-fleet` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0](https://github.com/juliendurandeu/jonah-fleet/compare/jonah-fleet-v1.4.2...jonah-fleet-v1.5.0) (2026-09-03)
+
+
+### Features
+
+* **autowork:** add selective server-side issue querying to prevent tool buffer truncation ([#54](https://github.com/juliendurandeu/jonah-fleet/issues/54)) ([e85958b](https://github.com/juliendurandeu/jonah-fleet/commit/e85958bc9129b16af170961a0ae85ff91211ec85))
+* **cli:** add multi-repo fleet monitoring command (jonah-fleet monitor) ([#6](https://github.com/juliendurandeu/jonah-fleet/issues/6)) ([0093c0f](https://github.com/juliendurandeu/jonah-fleet/commit/0093c0f2bdeb0d48d952119b96e541be73c59a03))
+* **cli:** add per-agent token breakdown to jonah-fleet status and monitor commands ([#16](https://github.com/juliendurandeu/jonah-fleet/issues/16)) ([7e51d0c](https://github.com/juliendurandeu/jonah-fleet/commit/7e51d0cb6bdf8fef127cac7f13f8320821cb4391))
+* **cli:** enhance jonah-fleet init with smart tech-stack auto-detection ([#37](https://github.com/juliendurandeu/jonah-fleet/issues/37)) ([b1b028a](https://github.com/juliendurandeu/jonah-fleet/commit/b1b028a5cc145aeb6a0a9b0df2e4ab010c1fa104))
+* **daemon:** dynamically track and display active issue or PR in terminal spinner and status ([#57](https://github.com/juliendurandeu/jonah-fleet/issues/57)) ([f9c3baa](https://github.com/juliendurandeu/jonah-fleet/commit/f9c3baaab1562e21a0db170f311873cdc9a3e287))
+* **daemon:** multi-cadence daemon, terminal cards, and strict allowlist review filters ([5889a0c](https://github.com/juliendurandeu/jonah-fleet/commit/5889a0c2b11b74faece74f7a64db43cb98fd47a1))
+* **dual-execution:** priority-driven dual execution (local agents + actions) ([#53](https://github.com/juliendurandeu/jonah-fleet/issues/53)) ([5711bf3](https://github.com/juliendurandeu/jonah-fleet/commit/5711bf3798bba799ba4638c8cb2584878ad25d25))
+* **evals:** add automated test suite for bi-directional optimization bridge and downstream sync ([#23](https://github.com/juliendurandeu/jonah-fleet/issues/23)) ([2e55227](https://github.com/juliendurandeu/jonah-fleet/commit/2e552273600c22879d81b6ad607ad912809d3dbb))
+* **fleet-query:** extend fleet query engine with per-routine token and iteration aggregation ([#15](https://github.com/juliendurandeu/jonah-fleet/issues/15)) ([cabbbbc](https://github.com/juliendurandeu/jonah-fleet/commit/cabbbbcc62d8fe39ea135f56acdba0343aa11e02))
+* **fleet:** initial release of jonah-fleet standalone agent suite and CLI ([1b08b3e](https://github.com/juliendurandeu/jonah-fleet/commit/1b08b3e14626cda25e76464d92782f16cfaae936))
+* **optimizer:** implement token anomaly heuristics and automated PR triggers ([#10](https://github.com/juliendurandeu/jonah-fleet/issues/10)) ([#17](https://github.com/juliendurandeu/jonah-fleet/issues/17)) ([3090785](https://github.com/juliendurandeu/jonah-fleet/commit/30907857f7e24edaee1d2c2dbca61568d95f7767))
+* **optimizer:** update optimizer routine with per-agent token aggregation protocol and scorecard schema ([#14](https://github.com/juliendurandeu/jonah-fleet/issues/14)) ([2e435ef](https://github.com/juliendurandeu/jonah-fleet/commit/2e435ef7492bf75dbf3c081d64375f49ea542667))
+* **orchestration:** add failure notification and periodic scan watchdog to prevent stuck PRs ([#32](https://github.com/juliendurandeu/jonah-fleet/issues/32)) ([a7c555f](https://github.com/juliendurandeu/jonah-fleet/commit/a7c555f2f38a868674931bd9b61511b4530f2784))
+* **orchestration:** add symphony radar, attribution notice, and inward blocker dependency gating ([#34](https://github.com/juliendurandeu/jonah-fleet/issues/34)) ([f8995ef](https://github.com/juliendurandeu/jonah-fleet/commit/f8995efd63a1509414768b2f0bf726d1de15a214))
+* **peer-review:** add autonomous issue synthesis for unlinked PRs ([54e9a54](https://github.com/juliendurandeu/jonah-fleet/commit/54e9a54685ee89bf124923fb6086760c3753d097))
+* **peer-review:** allow self-contained PR descriptions without blocking on linked issues ([97b7034](https://github.com/juliendurandeu/jonah-fleet/commit/97b703403040fc9dbe4f6b6622000822d9925aae))
+* **prompts:** add Design System & Telemetry Friction Guardrails to core routines (closes [#49](https://github.com/juliendurandeu/jonah-fleet/issues/49)) ([#50](https://github.com/juliendurandeu/jonah-fleet/issues/50)) ([16d1011](https://github.com/juliendurandeu/jonah-fleet/commit/16d1011ac5255b84f93a8ece7e3f516d7355dc09))
+* **prompts:** add feedback loop stagnation heuristic and closed-loop verification audit ([#24](https://github.com/juliendurandeu/jonah-fleet/issues/24)) ([c3ea012](https://github.com/juliendurandeu/jonah-fleet/commit/c3ea01297017347f6b3c43e4bdd99ea2704fd60e))
+* **routines:** bridge analytics measurement outcomes into product planning for feature pivots and deprecations ([#43](https://github.com/juliendurandeu/jonah-fleet/issues/43)) ([446641d](https://github.com/juliendurandeu/jonah-fleet/commit/446641da7a9f9fc0c00dcf1fa98c26c067145ddc)), closes [#28](https://github.com/juliendurandeu/jonah-fleet/issues/28)
+* **telemetry:** design and implement centralized cross-repo telemetry and token tracking hub (closes [#5](https://github.com/juliendurandeu/jonah-fleet/issues/5)) ([#22](https://github.com/juliendurandeu/jonah-fleet/issues/22)) ([e910277](https://github.com/juliendurandeu/jonah-fleet/commit/e9102779293601e94a23401a10e669bb174cb972))
+* **workflows:** support custom cron schedules in manifest and preserve across syncs ([#47](https://github.com/juliendurandeu/jonah-fleet/issues/47)) ([#48](https://github.com/juliendurandeu/jonah-fleet/issues/48)) ([029fadb](https://github.com/juliendurandeu/jonah-fleet/commit/029fadbcabe805fb46268fa369e8f0f7272c33f1))
+* **workflows:** support manual and comment-based (re)triggering for peer review routine ([#30](https://github.com/juliendurandeu/jonah-fleet/issues/30)) ([e8be955](https://github.com/juliendurandeu/jonah-fleet/commit/e8be955f429450fdce2d79f52a27c3ee4bb41acd)), closes [#29](https://github.com/juliendurandeu/jonah-fleet/issues/29)
+* **workflows:** support triggering autowork via workflow_dispatch badge link (closes [#18](https://github.com/juliendurandeu/jonah-fleet/issues/18)) ([#20](https://github.com/juliendurandeu/jonah-fleet/issues/20)) ([a44e54e](https://github.com/juliendurandeu/jonah-fleet/commit/a44e54e647db11587ab58eb0ec01201cb7e9376f))
+
+
+### Bug Fixes
+
+* **ci:** grant issues:write to release-please and use googleapis action ([37a6782](https://github.com/juliendurandeu/jonah-fleet/commit/37a67824e4cbbced5e08dc48d79b70a4145646ff))
+* **detector:** use literal replacers and pmPrefix for fastapi dev ([0b96e2a](https://github.com/juliendurandeu/jonah-fleet/commit/0b96e2a06230df86a1c5a9097aa98b380565bcc8))
+* **security:** resolve Critical and High vulnerabilities in vitest and transitive dependencies ([#42](https://github.com/juliendurandeu/jonah-fleet/issues/42)) ([9c88fa9](https://github.com/juliendurandeu/jonah-fleet/commit/9c88fa97b1529ba20fc9223ddb6e7c08e1b345f6))
+
+
+### Performance Improvements
+
+* **workflows:** optimize github actions quota consumption ([#51](https://github.com/juliendurandeu/jonah-fleet/issues/51)) ([af8a8fb](https://github.com/juliendurandeu/jonah-fleet/commit/af8a8fb08cc9b884192e1204548a53b571f1a4a6))
+
 ## [1.4.2] - 2026-09-03
 
 ### Changed
@@ -12,8 +53,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Updated `trigger-review-routine.yml` to strictly require `priority/P0` or `priority/P1` labels to fire immediate cloud reviews on `pull_request` events.
   - Untagged PRs and lower-priority PRs (P2/P3) skip immediate cloud review, routing review execution exclusively to local peer-review daemons (with 48h scheduled cloud catchup fallback).
 - Dynamic Issue & PR Target Tracking:
-  - Added real-time target detection (`detectClaimedIssue` and `detectClaimedPR`) in `src/lib/terminal-card.ts` that dynamically switches the live spinner label from `autowork` / `peer-review` to `[Issue #<N>]` or `[PR #<N>]` the moment a candidate is claimed (#57).
-  - Added `activeTarget` tracking in `DaemonState` (`.jonah-fleet/daemon.json`), displayed in `jonah-fleet daemon status` (e.g. `WORKING on autowork (Issue #42)`) (#57, #58).
+  - Added real-time target detection (`detectClaimedIssue` and `detectClaimedPR`) in `src/lib/terminal-card.ts` that dynamically switches the live spinner label from `autowork` / `peer-review` to `[Issue #<N>]` or `[PR #<N>]` the moment a candidate is claimed.
+  - Added `activeTarget` tracking in `DaemonState` (`.jonah-fleet/daemon.json`), displayed in `jonah-fleet daemon status` (e.g. `WORKING on autowork (Issue #42)`).
 
 ## [1.4.1] - 2026-09-03
 

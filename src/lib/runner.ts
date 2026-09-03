@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { spawn } from 'node:child_process';
+import { spawn, execSync } from 'node:child_process';
 import { createWorktree, removeWorktree } from './worktree.js';
 import pc from 'picocolors';
 
@@ -85,7 +85,6 @@ export function buildRoutinePrompt(
  */
 export function isAgyInstalled(): boolean {
   try {
-    const { execSync } = require('node:child_process');
     execSync('agy --version', { stdio: 'ignore' });
     return true;
   } catch {

@@ -9,12 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Inquisitive Agent Fleet & Grilling Protocol:
-  - Added new `grill-me` engineering skill (`templates/skills/grill-me/SKILL.md` and `.agents/skills/grill-me/SKILL.md`) to stress-test proposals, requirements, and designs through a targeted, sequential interview to eliminate assumptions before implementation.
-  - Included `grill-me` in `standard` and `full` presets in `src/lib/presets.ts` and `agents-manifest.json`.
-  - Added Requirements Discovery & Inquisitive Stance rules to `templates/docs/AGENTS.template.md` and `AGENTS.md`, establishing default skepticism on necessity, zero-guesswork ambiguity gates, and high-leverage question structuring.
-  - Added Ambiguity & Missing Acceptance Criteria Gate to Step 12 in `autowork.md` (`templates/prompts/autowork.md` & `.github/prompts/autowork.md`) to post clarifying questions, label `needs-info`, and release the claim instead of making silent assumptions.
-  - Added Selective Server-Side Issue Querying in Step 8 of `autowork.md` using `gh --search` with exclusion filters (`no:assignee -label:measurement -label:needs-human -label:needs-design -label:wontfix -label:needs-info`) to avoid tool buffer truncation and token waste.
-  - Updated `triage.md` and `ORCHESTRATION.md` to integrate `/grill-me` into issue evaluation and planning.
+  - Added new `grill-me` engineering skill (`templates/skills/grill-me/SKILL.md` and `.agents/skills/grill-me/SKILL.md`) to stress-test proposals, requirements, and designs through a targeted, sequential interview to eliminate assumptions before implementation (#54, #55).
+  - Included `grill-me` in `standard` and `full` presets in `src/lib/presets.ts` and `agents-manifest.json` (#54, #55).
+  - Added Requirements Discovery & Inquisitive Stance rules to `templates/docs/AGENTS.template.md` and `AGENTS.md`, establishing default skepticism on necessity, zero-guesswork ambiguity gates, and high-leverage question structuring (#54, #55).
+  - Added Ambiguity & Missing Acceptance Criteria Gate to Step 12 in `autowork.md` (`templates/prompts/autowork.md` & `.github/prompts/autowork.md`) to post clarifying questions, label `needs-info`, and release the claim instead of making silent assumptions (#54, #55).
+  - Added Selective Server-Side Issue Querying in Step 8 of `autowork.md` using `gh --search` with exclusion filters (`no:assignee -label:measurement -label:needs-human -label:needs-design -label:wontfix -label:needs-info`) to avoid tool buffer truncation and token waste (#54, #55).
+  - Updated `triage.md` and `ORCHESTRATION.md` to integrate `/grill-me` into issue evaluation and planning (#54, #55).
 - Priority-Driven Dual Agent Execution (Local + GitHub Actions):
   - Added CLI `jonah-fleet run <routine>` command to execute prompt routines locally with automatic Git worktree isolation (`.jonah-fleet/worktrees/`), protecting active working copies and uncommitted editor files.
   - Added CLI `jonah-fleet daemon [start|stop|status]` background worker to continuously poll open issues and PRs for local execution.

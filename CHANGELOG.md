@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **daemon:** display target PR/issue ID & title and wrap terminal card lines without cropping
 * **autowork:** single-flight PR claim protocol in Phase 1 convergence to prevent daemon race conditions on bounced PRs
 * **autowork:** add selective server-side issue querying to prevent tool buffer truncation ([#54](https://github.com/juliendurandeu/jonah-fleet/issues/54)) ([e85958b](https://github.com/juliendurandeu/jonah-fleet/commit/e85958bc9129b16af170961a0ae85ff91211ec85))
-* **daemon:** drain reviewable PR backlog via sequential peer review sessions before moving to autowork
+* **daemon:** drain reviewable PR backlog via sequential peer review sessions before moving to autowork ([#61](https://github.com/juliendurandeu/jonah-fleet/issues/61)) ([#62](https://github.com/juliendurandeu/jonah-fleet/pull/62))
 * **cli:** add multi-repo fleet monitoring command (jonah-fleet monitor) ([#6](https://github.com/juliendurandeu/jonah-fleet/issues/6)) ([0093c0f](https://github.com/juliendurandeu/jonah-fleet/commit/0093c0f2bdeb0d48d952119b96e541be73c59a03))
 * **cli:** add per-agent token breakdown to jonah-fleet status and monitor commands ([#16](https://github.com/juliendurandeu/jonah-fleet/issues/16)) ([7e51d0c](https://github.com/juliendurandeu/jonah-fleet/commit/7e51d0cb6bdf8fef127cac7f13f8320821cb4391))
 * **cli:** enhance jonah-fleet init with smart tech-stack auto-detection ([#37](https://github.com/juliendurandeu/jonah-fleet/issues/37)) ([b1b028a](https://github.com/juliendurandeu/jonah-fleet/commit/b1b028a5cc145aeb6a0a9b0df2e4ab010c1fa104))

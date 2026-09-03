@@ -8,6 +8,8 @@ import {
   findLatestRunLog,
   parseRunLog,
   detectActivePhase,
+  detectClaimedIssue,
+  detectClaimedPR,
   renderSummaryCard,
   renderErrorCard,
   TerminalSpinner,
@@ -151,6 +153,42 @@ The build is completing. Continuing shortly.
 
     it('falls back to current phase when unknown', () => {
       expect(detectActivePhase('some random comment', 'Custom phase')).toBe('Custom phase');
+    });
+
+    it('detects issue claim in phase detection', () => {
+      expect(detectActivePhase('🔒 Claimed by local autowork session (host: devbox)')).toContain('Claimed target issue');
+    });
+  });
+
+  describe('detectClaimedIssue & detectClaimedPR', () => {
+    it('detects claimed issue from lock comment', () => {
+      expect(detectClaimedIssue('🔒 Claimed by local autowork session (host: mac) on #42 at 2026-09-03')).toBe('Issue #42');
+      expect(detectClaimedIssue('🔒 Claimed candidate #88')).toBe('Issue #88');
+    });
+
+    it('detects issue from gh issue command', () => {
+      expect(detectClaimedIssue('Running gh issue view 105 --json title')).toBe('Issue #105');
+      expect(detectClaimedIssue('gh issue edit 42 --add-assignee user')).toBe('Issue #42');
+    });
+
+    it('detects issue from natural language claiming text', () => {
+      expect(detectClaimedIssue('Selected candidate issue #99 for implementation')).toBe('Issue #99');
+      expect(detectClaimedIssue('Claiming issue #15...')).toBe('Issue #15');
+      expect(detectClaimedIssue('Issue #77 claimed atomically.')).toBe('Issue #77');
+    });
+
+    it('returns null when no issue is referenced', () => {
+      expect(detectClaimedIssue('Checking backlog for unclaimed issues...')).toBeNull();
+    });
+
+    it('detects PR from starting review comment or target PR text', () => {
+      expect(detectClaimedPR('Starting review (round 1) on #3783')).toBe('PR #3783');
+      expect(detectClaimedPR('Selected Target PR: [PR #3783]')).toBe('PR #3783');
+      expect(detectClaimedPR('Running gh pr view 3783 --json diff')).toBe('PR #3783');
+    });
+
+    it('returns null when no PR is referenced', () => {
+      expect(detectClaimedPR('Scanning open pull requests...')).toBeNull();
     });
   });
 

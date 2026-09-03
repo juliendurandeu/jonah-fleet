@@ -188,6 +188,12 @@ export function parseRunLog(logContent: string): ParsedRunSummary {
 export function detectActivePhase(chunk: string, currentPhase: string = 'Executing routine'): string {
   const lower = chunk.toLowerCase();
 
+  if (lower.includes('🔒 claimed') || lower.includes('claimed by local autowork') || lower.includes('claimed by autowork')) {
+    return 'Claimed target issue, starting implementation';
+  }
+  if (lower.includes('starting review (round')) {
+    return 'Claimed review window, starting review passes';
+  }
   if (lower.includes('check-client-boundary')) return 'Verifying React Server Component boundaries';
   if (lower.includes('type-check') || lower.includes('tsc --noemit')) return 'Running TypeScript type checks';
   if (lower.includes('lint') || lower.includes('eslint')) return 'Running codebase linter';
@@ -202,6 +208,48 @@ export function detectActivePhase(chunk: string, currentPhase: string = 'Executi
   if (lower.includes('worktree')) return 'Preparing workspace worktree';
 
   return currentPhase;
+}
+
+/**
+ * Detects if the agent has selected or claimed a specific issue in Scan mode.
+ */
+export function detectClaimedIssue(chunk: string): string | null {
+  // Pattern 1: 🔒 Claimed ... #123
+  const claimMatch = chunk.match(/🔒\s*Claimed[^\n#]*?#(\d+)/i);
+  if (claimMatch) return `Issue #${claimMatch[1]}`;
+
+  // Pattern 2: gh issue (view|edit|comment|develop) 123
+  const ghMatch = chunk.match(/gh\s+issue\s+(?:view|edit|comment|develop)\s+(\d+)/i);
+  if (ghMatch) return `Issue #${ghMatch[1]}`;
+
+  // Pattern 3: Candidate issue #123, Selected issue #123, Claiming issue #123
+  const textMatch = chunk.match(/(?:selected|claimed|claiming|target(?:ing)?|working|candidate)\s+(?:candidate\s+)?issue\s+#?(\d+)/i);
+  if (textMatch) return `Issue #${textMatch[1]}`;
+
+  // Pattern 4: Issue #123 claimed
+  const passiveMatch = chunk.match(/issue\s+#(\d+)\s+(?:claimed|selected)/i);
+  if (passiveMatch) return `Issue #${passiveMatch[1]}`;
+
+  return null;
+}
+
+/**
+ * Detects if the agent has selected a specific pull request in Scan mode.
+ */
+export function detectClaimedPR(chunk: string): string | null {
+  // Pattern 1: Starting review (round N) on PR #123
+  const reviewMatch = chunk.match(/Starting\s+review[^\n#]*?#(\d+)/i);
+  if (reviewMatch) return `PR #${reviewMatch[1]}`;
+
+  // Pattern 2: Selected Target PR: [PR #123] or PR #123
+  const prMatch = chunk.match(/(?:selected|target|reviewing)\s+(?:target\s+)?PR:?\s*\[?PR\s*#?(\d+)/i);
+  if (prMatch) return `PR #${prMatch[1]}`;
+
+  // Pattern 3: gh pr (view|diff|checkout|review) 123
+  const ghPrMatch = chunk.match(/gh\s+pr\s+(?:view|diff|checkout|review)\s+(\d+)/i);
+  if (ghPrMatch) return `PR #${ghPrMatch[1]}`;
+
+  return null;
 }
 
 /**

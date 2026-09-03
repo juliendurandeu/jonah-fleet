@@ -18,6 +18,7 @@ export interface DaemonState {
   lastAutoworkCheckAt?: string;
   status: 'idle' | 'working' | 'stopped';
   activeRoutine?: string;
+  activeTarget?: string;
   activeWorktree?: string;
 }
 
@@ -276,6 +277,10 @@ export async function runDaemonLoop(repoRoot: string, options: DaemonOptions = {
         model: options.model,
         verbose: options.verbose,
         noWorktree: false,
+        onTargetDetected: (target) => {
+          state.activeTarget = target;
+          writeDaemonState(repoRoot, state);
+        },
       });
 
       if (result.success) {
@@ -289,6 +294,7 @@ export async function runDaemonLoop(repoRoot: string, options: DaemonOptions = {
       isWorking = false;
       state.status = 'idle';
       state.activeRoutine = undefined;
+      state.activeTarget = undefined;
       writeDaemonState(repoRoot, state);
       nextReviewCheckTime = Date.now() + reviewIntervalMs;
       updateTicker();
@@ -316,6 +322,10 @@ export async function runDaemonLoop(repoRoot: string, options: DaemonOptions = {
         model: options.model,
         verbose: options.verbose,
         noWorktree: false,
+        onTargetDetected: (target) => {
+          state.activeTarget = target;
+          writeDaemonState(repoRoot, state);
+        },
       });
 
       if (result.success) {
@@ -329,6 +339,7 @@ export async function runDaemonLoop(repoRoot: string, options: DaemonOptions = {
       isWorking = false;
       state.status = 'idle';
       state.activeRoutine = undefined;
+      state.activeTarget = undefined;
       writeDaemonState(repoRoot, state);
       nextAutoworkCheckTime = Date.now() + autoworkIntervalMs;
       updateTicker();

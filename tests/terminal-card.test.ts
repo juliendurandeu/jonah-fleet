@@ -158,6 +158,11 @@ The build is completing. Continuing shortly.
     it('detects issue claim in phase detection', () => {
       expect(detectActivePhase('🔒 Claimed by local autowork session (host: devbox)')).toContain('Claimed target issue');
     });
+
+    it('detects PR review finding claim in phase detection', () => {
+      expect(detectActivePhase('🔒 Addressing review findings by local autowork session (host: devbox)')).toContain('Claimed bounced PR');
+      expect(detectActivePhase('🔒 Addressing review findings by autowork run https://github.com/org/repo/actions/runs/123')).toContain('Claimed bounced PR');
+    });
   });
 
   describe('detectClaimedIssue & detectClaimedPR', () => {
@@ -185,6 +190,8 @@ The build is completing. Continuing shortly.
       expect(detectClaimedPR('Starting review (round 1) on #3783')).toBe('PR #3783');
       expect(detectClaimedPR('Selected Target PR: [PR #3783]')).toBe('PR #3783');
       expect(detectClaimedPR('Running gh pr view 3783 --json diff')).toBe('PR #3783');
+      expect(detectClaimedPR('gh pr edit 42 --add-assignee user')).toBe('PR #42');
+      expect(detectClaimedPR('🔒 Addressing review findings by autowork run on PR #88')).toBe('PR #88');
     });
 
     it('returns null when no PR is referenced', () => {

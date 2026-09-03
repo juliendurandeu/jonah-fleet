@@ -188,6 +188,9 @@ export function parseRunLog(logContent: string): ParsedRunSummary {
 export function detectActivePhase(chunk: string, currentPhase: string = 'Executing routine'): string {
   const lower = chunk.toLowerCase();
 
+  if (lower.includes('🔒 addressing review findings') || lower.includes('addressing review findings by')) {
+    return 'Claimed bounced PR, addressing review findings';
+  }
   if (lower.includes('🔒 claimed') || lower.includes('claimed by local autowork') || lower.includes('claimed by autowork')) {
     return 'Claimed target issue, starting implementation';
   }
@@ -237,6 +240,10 @@ export function detectClaimedIssue(chunk: string): string | null {
  * Detects if the agent has selected a specific pull request in Scan mode.
  */
 export function detectClaimedPR(chunk: string): string | null {
+  // Pattern 0: 🔒 Addressing review findings ... PR #123 or on #123
+  const findingMatch = chunk.match(/(?:addressing\s+review\s+findings|fixing\s+review\s+findings)[^\n#]*?#(\d+)/i);
+  if (findingMatch) return `PR #${findingMatch[1]}`;
+
   // Pattern 1: Starting review (round N) on PR #123
   const reviewMatch = chunk.match(/Starting\s+review[^\n#]*?#(\d+)/i);
   if (reviewMatch) return `PR #${reviewMatch[1]}`;
@@ -245,8 +252,8 @@ export function detectClaimedPR(chunk: string): string | null {
   const prMatch = chunk.match(/(?:selected|target|reviewing)\s+(?:target\s+)?PR:?\s*\[?PR\s*#?(\d+)/i);
   if (prMatch) return `PR #${prMatch[1]}`;
 
-  // Pattern 3: gh pr (view|diff|checkout|review) 123
-  const ghPrMatch = chunk.match(/gh\s+pr\s+(?:view|diff|checkout|review)\s+(\d+)/i);
+  // Pattern 3: gh pr (view|diff|checkout|review|edit|ready) 123
+  const ghPrMatch = chunk.match(/gh\s+pr\s+(?:view|diff|checkout|review|edit|ready)\s+(\d+)/i);
   if (ghPrMatch) return `PR #${ghPrMatch[1]}`;
 
   return null;

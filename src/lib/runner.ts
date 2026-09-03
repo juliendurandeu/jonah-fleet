@@ -6,6 +6,8 @@ import { createWorktree, removeWorktree } from './worktree.js';
 import {
   TerminalSpinner,
   detectActivePhase,
+  detectClaimedIssue,
+  detectClaimedPR,
   renderSummaryCard,
   renderErrorCard,
 } from './terminal-card.js';
@@ -25,6 +27,7 @@ export interface RunLocalRoutineOptions {
   showCard?: boolean;
   env?: Record<string, string>;
   onLog?: (chunk: string) => void;
+  onTargetDetected?: (target: string) => void;
 }
 
 export interface RunLocalRoutineResult {
@@ -179,11 +182,12 @@ export async function runLocalRoutine(options: RunLocalRoutineOptions): Promise<
   fs.mkdirSync(logDir, { recursive: true });
   const logFilePath = path.join(logDir, 'daemon.log');
 
-  const targetLabel = options.pr
+  let targetLabel = options.pr
     ? `PR #${options.pr}`
     : options.issue
       ? `Issue #${options.issue}`
       : routine;
+  let dynamicTargetDetected = Boolean(options.pr || options.issue);
 
   let activePhase = 'Starting session...';
   const spinner = !options.verbose ? new TerminalSpinner() : null;
@@ -206,6 +210,47 @@ export async function runLocalRoutine(options: RunLocalRoutineOptions): Promise<
   process.once('SIGINT', sigintHandler);
   process.once('SIGTERM', sigintHandler);
 
+  const processChunk = (chunk: string, isStderr: boolean = false) => {
+    output += chunk;
+
+    try {
+      fs.appendFileSync(logFilePath, chunk, 'utf8');
+    } catch {
+      // Ignore log write errors
+    }
+
+    if (!dynamicTargetDetected) {
+      const detected =
+        routine === 'peer-review' ? detectClaimedPR(chunk) : detectClaimedIssue(chunk);
+      if (detected) {
+        dynamicTargetDetected = true;
+        targetLabel = detected;
+        options.onTargetDetected?.(detected);
+        if (spinner) {
+          spinner.update(`${targetLabel}: ${activePhase}`);
+        }
+      }
+    }
+
+    if (options.onLog) {
+      options.onLog(chunk);
+    }
+
+    if (options.verbose) {
+      if (isStderr) {
+        process.stderr.write(chunk);
+      } else {
+        process.stdout.write(chunk);
+      }
+    } else if (spinner) {
+      const newPhase = detectActivePhase(chunk, activePhase);
+      if (newPhase !== activePhase) {
+        activePhase = newPhase;
+        spinner.update(`${targetLabel}: ${activePhase}`);
+      }
+    }
+  };
+
   try {
     exitCode = await new Promise<number>((resolve, reject) => {
       const child = spawn('agy', args, {
@@ -215,53 +260,11 @@ export async function runLocalRoutine(options: RunLocalRoutineOptions): Promise<
       });
 
       child.stdout?.on('data', (data) => {
-        const chunk = data.toString();
-        output += chunk;
-
-        try {
-          fs.appendFileSync(logFilePath, chunk, 'utf8');
-        } catch {
-          // Ignore log write errors
-        }
-
-        if (options.onLog) {
-          options.onLog(chunk);
-        }
-
-        if (options.verbose) {
-          process.stdout.write(chunk);
-        } else if (spinner) {
-          const newPhase = detectActivePhase(chunk, activePhase);
-          if (newPhase !== activePhase) {
-            activePhase = newPhase;
-            spinner.update(`${targetLabel}: ${activePhase}`);
-          }
-        }
+        processChunk(data.toString(), false);
       });
 
       child.stderr?.on('data', (data) => {
-        const chunk = data.toString();
-        output += chunk;
-
-        try {
-          fs.appendFileSync(logFilePath, chunk, 'utf8');
-        } catch {
-          // Ignore log write errors
-        }
-
-        if (options.onLog) {
-          options.onLog(chunk);
-        }
-
-        if (options.verbose) {
-          process.stderr.write(chunk);
-        } else if (spinner) {
-          const newPhase = detectActivePhase(chunk, activePhase);
-          if (newPhase !== activePhase) {
-            activePhase = newPhase;
-            spinner.update(`${targetLabel}: ${activePhase}`);
-          }
-        }
+        processChunk(data.toString(), true);
       });
 
       child.on('error', (err) => {
@@ -286,6 +289,11 @@ export async function runLocalRoutine(options: RunLocalRoutineOptions): Promise<
   // Render Card if not in verbose mode and showCard is not disabled
   if (options.showCard !== false && !options.verbose) {
     const durationMs = Date.now() - startTime;
+    const effectiveIssue =
+      options.issue || (targetLabel.startsWith('Issue #') ? targetLabel.replace('Issue #', '') : undefined);
+    const effectivePR =
+      options.pr || (targetLabel.startsWith('PR #') ? targetLabel.replace('PR #', '') : undefined);
+
     if (exitCode === 0) {
       console.log(
         '\n' +
@@ -293,8 +301,8 @@ export async function runLocalRoutine(options: RunLocalRoutineOptions): Promise<
             routine,
             output,
             repoRoot: targetDir,
-            issue: options.issue,
-            pr: options.pr,
+            issue: effectiveIssue,
+            pr: effectivePR,
             durationMs,
           }) +
           '\n'
@@ -306,8 +314,8 @@ export async function runLocalRoutine(options: RunLocalRoutineOptions): Promise<
             routine,
             exitCode,
             repoRoot: targetDir,
-            issue: options.issue,
-            pr: options.pr,
+            issue: effectiveIssue,
+            pr: effectivePR,
             durationMs,
           }) +
           '\n'

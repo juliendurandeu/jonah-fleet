@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Strict Allowlist for Cloud Review Triggers:
   - Updated `trigger-review-routine.yml` to strictly require `priority/P0` or `priority/P1` labels to fire immediate cloud reviews on `pull_request` events.
   - Untagged PRs and lower-priority PRs (P2/P3) skip immediate cloud review, routing review execution exclusively to local peer-review daemons (with 48h scheduled cloud catchup fallback).
+- Dynamic Issue & PR Target Tracking:
+  - Added real-time target detection (`detectClaimedIssue` and `detectClaimedPR`) in `src/lib/terminal-card.ts` that dynamically switches the live spinner label from `autowork` / `peer-review` to `[Issue #<N>]` or `[PR #<N>]` the moment a candidate is claimed.
+  - Added `activeTarget` tracking in `DaemonState` (`.jonah-fleet/daemon.json`), displayed in `jonah-fleet daemon status` (e.g. `WORKING on autowork (Issue #42)`).
 
 ## [1.4.1] - 2026-09-03
 

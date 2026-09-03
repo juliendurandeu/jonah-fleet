@@ -94,7 +94,8 @@ export async function runDaemonCommand(action?: string, options: DaemonCommandOp
     console.log(`  Peer Review Cadence:  Every ${state.reviewIntervalMinutes} minutes (0-token fast preflight)`);
     console.log(`  Autowork Cadence:     Every ${state.autoworkIntervalMinutes} minutes`);
     console.log(`  Routines:             ${state.routines.join(', ')}`);
-    console.log(`  Current State:        ${state.status === 'working' ? pc.yellow('WORKING on ' + state.activeRoutine) : pc.green('IDLE')}`);
+    const workingDesc = state.activeRoutine + (state.activeTarget ? ` (${pc.bold(state.activeTarget)})` : '');
+    console.log(`  Current State:        ${state.status === 'working' ? pc.yellow('WORKING on ' + workingDesc) : pc.green('IDLE')}`);
     if (state.lastReviewCheckAt) {
       console.log(`  Last Review Check:    ${new Date(state.lastReviewCheckAt).toLocaleTimeString()}`);
     }

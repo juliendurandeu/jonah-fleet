@@ -1,7 +1,15 @@
 {
   "$schema": "https://raw.githubusercontent.com/juliendurandeu/jonah-fleet/main/schema.json",
-  "version": "1.0.0",
+  "version": "1.4.0",
   "preset": "standard",
+  "dualExecution": {
+    "enabled": true,
+    "cloudPriorities": [
+      "P0",
+      "P1"
+    ],
+    "cloudCatchupHours": 48
+  },
   "routines": {
     "autowork": true,
     "peer-review": true,

@@ -28,6 +28,7 @@ export interface DaemonOptions {
   routines?: string[];
   model?: string;
   foreground?: boolean;
+  verbose?: boolean;
 }
 
 export function getDaemonStatePath(repoRoot: string): string {
@@ -124,6 +125,9 @@ export async function startBackgroundDaemon(repoRoot: string, options: DaemonOpt
   if (options.model) {
     args.push('--model', options.model);
   }
+  if (options.verbose) {
+    args.push('--verbose');
+  }
 
   const child = spawn(process.execPath, [cliPath, ...args], {
     cwd: repoRoot,
@@ -192,9 +196,44 @@ export async function runDaemonLoop(repoRoot: string, options: DaemonOptions = {
   let isStopping = false;
   let isWorking = false;
 
+  // Set up decoupled intervals
+  const reviewIntervalMs = reviewInterval * 60 * 1000;
+  const autoworkIntervalMs = autoworkInterval * 60 * 1000;
+
+  let nextReviewCheckTime = Date.now() + (routines.includes('peer-review') ? reviewIntervalMs : Infinity);
+  let nextAutoworkCheckTime = Date.now() + (routines.includes('autowork') ? autoworkIntervalMs : Infinity);
+  let lastOpenPRCount: number | undefined = undefined;
+
+  const clearTicker = () => {
+    if (process.stderr.isTTY && !options.verbose) {
+      process.stderr.write('\r\x1b[K');
+    }
+  };
+
+  const updateTicker = () => {
+    if (isStopping || isWorking || options.verbose || !process.stderr.isTTY) return;
+    const now = Date.now();
+    const nextCheck = Math.min(nextReviewCheckTime, nextAutoworkCheckTime);
+    const diffMs = Math.max(0, nextCheck - now);
+    const remainingSecs = Math.ceil(diffMs / 1000);
+    const mins = Math.floor(remainingSecs / 60);
+    const secs = remainingSecs % 60;
+    const timeStr = `${mins}m ${secs < 10 ? '0' : ''}${secs}s`;
+    const prStr = lastOpenPRCount !== undefined ? ` (${lastOpenPRCount} ready PRs)` : '';
+    process.stderr.write(
+      `\r\x1b[K${pc.dim('[' + new Date().toLocaleTimeString() + ']')} 💤 ${pc.dim('Watchdog Idle · Next check in ' + timeStr + prStr)}`
+    );
+  };
+
+  const tickerInterval = setInterval(updateTicker, 1000);
+
   const handleStop = async () => {
     if (isStopping) return;
     isStopping = true;
+    clearInterval(tickerInterval);
+    clearInterval(reviewTimer);
+    clearInterval(autoworkTimer);
+    clearTicker();
     console.log(pc.yellow(`\nStopping local agent daemon...`));
     clearDaemonState(repoRoot);
     await cleanupStaleWorktrees(repoRoot);
@@ -210,13 +249,20 @@ export async function runDaemonLoop(repoRoot: string, options: DaemonOptions = {
     writeDaemonState(repoRoot, state);
 
     const openPRCount = await countOpenReadyPRs(repoRoot);
+    lastOpenPRCount = openPRCount;
+
     if (openPRCount === 0) {
-      console.log(pc.dim(`[${new Date().toLocaleTimeString()}] Peer Review Watchdog: 0 ready PRs found (0 tokens used).`));
+      if (options.verbose) {
+        console.log(pc.dim(`[${new Date().toLocaleTimeString()}] Peer Review Watchdog: 0 ready PRs found (0 tokens used).`));
+      }
+      nextReviewCheckTime = Date.now() + reviewIntervalMs;
+      updateTicker();
       return;
     }
 
     try {
       isWorking = true;
+      clearTicker();
       state.status = 'working';
       state.activeRoutine = 'peer-review';
       writeDaemonState(repoRoot, state);
@@ -228,13 +274,14 @@ export async function runDaemonLoop(repoRoot: string, options: DaemonOptions = {
         targetDir: repoRoot,
         routine: 'peer-review',
         model: options.model,
+        verbose: options.verbose,
         noWorktree: false,
       });
 
       if (result.success) {
-        console.log(pc.green(`✓ Local peer-review completed successfully.`));
+        console.log(pc.green(`✓ Local peer-review completed successfully.\n`));
       } else {
-        console.warn(pc.yellow(`⚠️  Local peer-review completed with code ${result.exitCode}.`));
+        console.warn(pc.yellow(`⚠️  Local peer-review completed with code ${result.exitCode}.\n`));
       }
     } catch (err: any) {
       console.error(pc.red(`✗ Error in peer-review: ${err.message}`));
@@ -243,6 +290,8 @@ export async function runDaemonLoop(repoRoot: string, options: DaemonOptions = {
       state.status = 'idle';
       state.activeRoutine = undefined;
       writeDaemonState(repoRoot, state);
+      nextReviewCheckTime = Date.now() + reviewIntervalMs;
+      updateTicker();
     }
   };
 
@@ -253,6 +302,7 @@ export async function runDaemonLoop(repoRoot: string, options: DaemonOptions = {
 
     try {
       isWorking = true;
+      clearTicker();
       state.status = 'working';
       state.activeRoutine = 'autowork';
       writeDaemonState(repoRoot, state);
@@ -264,13 +314,14 @@ export async function runDaemonLoop(repoRoot: string, options: DaemonOptions = {
         targetDir: repoRoot,
         routine: 'autowork',
         model: options.model,
+        verbose: options.verbose,
         noWorktree: false,
       });
 
       if (result.success) {
-        console.log(pc.green(`✓ Local autowork completed successfully.`));
+        console.log(pc.green(`✓ Local autowork completed successfully.\n`));
       } else {
-        console.warn(pc.yellow(`⚠️  Local autowork completed with code ${result.exitCode}.`));
+        console.warn(pc.yellow(`⚠️  Local autowork completed with code ${result.exitCode}.\n`));
       }
     } catch (err: any) {
       console.error(pc.red(`✗ Error in autowork: ${err.message}`));
@@ -279,6 +330,8 @@ export async function runDaemonLoop(repoRoot: string, options: DaemonOptions = {
       state.status = 'idle';
       state.activeRoutine = undefined;
       writeDaemonState(repoRoot, state);
+      nextAutoworkCheckTime = Date.now() + autoworkIntervalMs;
+      updateTicker();
     }
   };
 
@@ -291,9 +344,6 @@ export async function runDaemonLoop(repoRoot: string, options: DaemonOptions = {
   }
 
   // Set up decoupled timers
-  const reviewIntervalMs = reviewInterval * 60 * 1000;
-  const autoworkIntervalMs = autoworkInterval * 60 * 1000;
-
   const reviewTimer = setInterval(runReviewCheck, reviewIntervalMs);
   const autoworkTimer = setInterval(runAutoworkCheck, autoworkIntervalMs);
 

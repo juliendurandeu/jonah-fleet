@@ -11,6 +11,7 @@ export interface RunCommandOptions {
   worktree?: boolean;
   keepWorktree?: boolean;
   dryRun?: boolean;
+  verbose?: boolean;
 }
 
 export async function runRoutineCommand(routine: string, options: RunCommandOptions = {}): Promise<void> {
@@ -37,6 +38,9 @@ export async function runRoutineCommand(routine: string, options: RunCommandOpti
   if (options.model) {
     console.log(pc.dim(`   Model override: ${options.model}`));
   }
+  if (options.verbose) {
+    console.log(pc.dim(`   Verbose output: Enabled (streaming raw tokens)`));
+  }
   if (options.worktree !== false) {
     console.log(pc.dim(`   Workspace isolation: Git Worktree (.jonah-fleet/worktrees/)`));
   } else {
@@ -55,6 +59,7 @@ export async function runRoutineCommand(routine: string, options: RunCommandOpti
       noWorktree: options.worktree === false,
       keepWorktree: options.keepWorktree,
       dryRun: options.dryRun,
+      verbose: options.verbose,
     });
 
     if (options.dryRun) {

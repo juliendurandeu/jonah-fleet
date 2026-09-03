@@ -26,6 +26,7 @@ program
   .option('--no-worktree', 'Execute directly in current directory without creating a git worktree')
   .option('--keep-worktree', 'Preserve the git worktree after routine execution completes')
   .option('-d, --dry-run', 'Preview prompt and execution parameters without launching agent')
+  .option('-v, --verbose', 'Stream raw agent tokens and logs directly to stdout')
   .action(async (routine, options) => {
     await runRoutineCommand(routine, options);
   });
@@ -39,6 +40,7 @@ program
   .option('-r, --routines <list>', 'Comma-separated routines to run (default: peer-review,autowork)')
   .option('-m, --model <model>', 'LLM model override')
   .option('--foreground', 'Run daemon in foreground with live console logs')
+  .option('-v, --verbose', 'Stream raw agent tokens and logs directly to stdout')
   .action(async (action, options) => {
     await runDaemonCommand(action, options);
   });

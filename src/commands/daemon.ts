@@ -16,6 +16,7 @@ export interface DaemonCommandOptions {
   routines?: string;
   model?: string;
   foreground?: boolean;
+  verbose?: boolean;
 }
 
 export async function runDaemonCommand(action?: string, options: DaemonCommandOptions = {}): Promise<void> {
@@ -33,6 +34,7 @@ export async function runDaemonCommand(action?: string, options: DaemonCommandOp
     routines: options.routines ? options.routines.split(',').map((r) => r.trim()) : undefined,
     model: options.model,
     foreground: options.foreground,
+    verbose: options.verbose,
   };
 
   if (act === 'start') {

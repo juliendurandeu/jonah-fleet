@@ -3,6 +3,12 @@ import path from 'node:path';
 import os from 'node:os';
 import { spawn, execSync } from 'node:child_process';
 import { createWorktree, removeWorktree } from './worktree.js';
+import {
+  TerminalSpinner,
+  detectActivePhase,
+  renderSummaryCard,
+  renderErrorCard,
+} from './terminal-card.js';
 import pc from 'picocolors';
 
 export interface RunLocalRoutineOptions {
@@ -15,6 +21,8 @@ export interface RunLocalRoutineOptions {
   noWorktree?: boolean;
   keepWorktree?: boolean;
   dryRun?: boolean;
+  verbose?: boolean;
+  showCard?: boolean;
   env?: Record<string, string>;
   onLog?: (chunk: string) => void;
 }
@@ -165,9 +173,27 @@ export async function runLocalRoutine(options: RunLocalRoutineOptions): Promise<
 
   let output = '';
   let exitCode = 0;
+  const startTime = Date.now();
+
+  const logDir = path.join(targetDir, '.jonah-fleet');
+  fs.mkdirSync(logDir, { recursive: true });
+  const logFilePath = path.join(logDir, 'daemon.log');
+
+  const targetLabel = options.pr
+    ? `PR #${options.pr}`
+    : options.issue
+      ? `Issue #${options.issue}`
+      : routine;
+
+  let activePhase = 'Starting session...';
+  const spinner = !options.verbose ? new TerminalSpinner() : null;
+  if (spinner) {
+    spinner.start(`${targetLabel}: ${activePhase}`);
+  }
 
   // Cleanup handler on process interruption
   const cleanup = async () => {
+    spinner?.stop();
     if (worktreePath && !options.keepWorktree) {
       await removeWorktree(targetDir, worktreePath, { deleteBranch: false }).catch(() => {});
     }
@@ -191,36 +217,101 @@ export async function runLocalRoutine(options: RunLocalRoutineOptions): Promise<
       child.stdout?.on('data', (data) => {
         const chunk = data.toString();
         output += chunk;
+
+        try {
+          fs.appendFileSync(logFilePath, chunk, 'utf8');
+        } catch {
+          // Ignore log write errors
+        }
+
         if (options.onLog) {
           options.onLog(chunk);
-        } else {
+        }
+
+        if (options.verbose) {
           process.stdout.write(chunk);
+        } else if (spinner) {
+          const newPhase = detectActivePhase(chunk, activePhase);
+          if (newPhase !== activePhase) {
+            activePhase = newPhase;
+            spinner.update(`${targetLabel}: ${activePhase}`);
+          }
         }
       });
 
       child.stderr?.on('data', (data) => {
         const chunk = data.toString();
         output += chunk;
+
+        try {
+          fs.appendFileSync(logFilePath, chunk, 'utf8');
+        } catch {
+          // Ignore log write errors
+        }
+
         if (options.onLog) {
           options.onLog(chunk);
-        } else {
+        }
+
+        if (options.verbose) {
           process.stderr.write(chunk);
+        } else if (spinner) {
+          const newPhase = detectActivePhase(chunk, activePhase);
+          if (newPhase !== activePhase) {
+            activePhase = newPhase;
+            spinner.update(`${targetLabel}: ${activePhase}`);
+          }
         }
       });
 
       child.on('error', (err) => {
+        spinner?.stop();
         reject(err);
       });
 
       child.on('close', (code) => {
+        spinner?.stop();
         resolve(code ?? 0);
       });
     });
   } finally {
+    spinner?.stop();
     process.removeListener('SIGINT', sigintHandler);
     process.removeListener('SIGTERM', sigintHandler);
     if (!options.keepWorktree) {
       await cleanup();
+    }
+  }
+
+  // Render Card if not in verbose mode and showCard is not disabled
+  if (options.showCard !== false && !options.verbose) {
+    const durationMs = Date.now() - startTime;
+    if (exitCode === 0) {
+      console.log(
+        '\n' +
+          renderSummaryCard({
+            routine,
+            output,
+            repoRoot: targetDir,
+            issue: options.issue,
+            pr: options.pr,
+            durationMs,
+          }) +
+          '\n'
+      );
+    } else {
+      console.log(
+        '\n' +
+          renderErrorCard({
+            routine,
+            exitCode,
+            repoRoot: targetDir,
+            issue: options.issue,
+            pr: options.pr,
+            durationMs,
+          }) +
+          '\n'
+      );
     }
   }
 

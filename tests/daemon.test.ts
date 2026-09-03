@@ -98,4 +98,11 @@ describe('Local Agent Daemon Manager', () => {
     expect(typeof count).toBe('number');
     expect(count).toBe(0);
   });
+
+  it('supports verbose flag in daemon options', async () => {
+    const { DaemonOptions } = await import('../src/lib/daemon.js');
+    const opts = { verbose: true, reviewInterval: 5 };
+    expect(opts.verbose).toBe(true);
+    expect(opts.reviewInterval).toBe(5);
+  });
 });

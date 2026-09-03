@@ -63,4 +63,18 @@ describe('Local Routine Runner', () => {
     expect(result.output).toContain('[DRY RUN]');
     expect(result.output).toContain('issue #99');
   });
+
+  it('accepts verbose flag in runLocalRoutine options', async () => {
+    const result = await runLocalRoutine({
+      targetDir: tmpRepo,
+      routine: 'peer-review',
+      pr: 10,
+      dryRun: true,
+      verbose: true,
+      noWorktree: true,
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.output).toContain('[DRY RUN]');
+  });
 });

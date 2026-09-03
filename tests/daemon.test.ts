@@ -93,7 +93,9 @@ describe('Local Agent Daemon Manager', () => {
   });
 
   it('safely handles PR count query on non-git or error directories', async () => {
-    const { countOpenReadyPRs } = await import('../src/lib/daemon.js');
+    const { countOpenReadyPRs, getOpenReviewablePRs } = await import('../src/lib/daemon.js');
+    const prs = await getOpenReviewablePRs(tmpRepo);
+    expect(prs).toEqual([]);
     const count = await countOpenReadyPRs(tmpRepo);
     expect(typeof count).toBe('number');
     expect(count).toBe(0);
@@ -104,5 +106,24 @@ describe('Local Agent Daemon Manager', () => {
     const opts = { verbose: true, reviewInterval: 5 };
     expect(opts.verbose).toBe(true);
     expect(opts.reviewInterval).toBe(5);
+  });
+
+  it('correctly filters out automated release PRs and retains feature/fix PRs', () => {
+    const rawPRs = [
+      { number: 10, headRefName: 'feat/my-feature', title: 'feat: add awesome feature' },
+      { number: 11, headRefName: 'release-please--branches--main', title: 'chore(main): release 1.0.0' },
+      { number: 12, headRefName: 'fix/bug-fix', title: 'fix: resolve edge case' },
+      { number: 13, headRefName: 'chore/release-helper', title: 'chore(main): release 2.0.0' },
+    ];
+
+    const filtered = rawPRs.filter(
+      (pr) =>
+        pr &&
+        typeof pr.number === 'number' &&
+        !pr.headRefName?.startsWith('release-please--') &&
+        !pr.title?.startsWith('chore(main): release')
+    );
+
+    expect(filtered.map((p) => p.number)).toEqual([10, 12]);
   });
 });

@@ -27,7 +27,8 @@
     "diagnosing-bugs",
     "resolving-merge-conflicts",
     "writing-for-agents",
-    "triage"
+    "triage",
+    "grill-me"
   ],
   "autoUpdate": {
     "enabled": true,

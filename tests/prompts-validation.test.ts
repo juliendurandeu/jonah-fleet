@@ -224,6 +224,41 @@ describe('Prompt Validation & Invariants', () => {
     expect(agentsContent).toContain('Design System & UI Guardrails');
   });
 
+  it('validates AGENTS.template.md and AGENTS.md document Requirements Discovery & Inquisitive Stance', () => {
+    const templateDocPath = path.join(templatesDir, 'docs', 'AGENTS.template.md');
+    const templateDocContent = fs.readFileSync(templateDocPath, 'utf8');
+    expect(templateDocContent).toContain('Requirements Discovery & Inquisitive Stance');
+    expect(templateDocContent).toContain('Challenge Premise First');
+    expect(templateDocContent).toContain('Zero-Guesswork Ambiguity Gate');
+    expect(templateDocContent).toContain('/grill-me');
+
+    const agentsPath = path.resolve(process.cwd(), 'AGENTS.md');
+    const agentsContent = fs.readFileSync(agentsPath, 'utf8');
+    expect(agentsContent).toContain('Requirements Discovery & Inquisitive Stance');
+    expect(agentsContent).toContain('Challenge Premise First');
+    expect(agentsContent).toContain('Zero-Guesswork Ambiguity Gate');
+    expect(agentsContent).toContain('/grill-me');
+  });
+
+  it('validates autowork.md defines Ambiguity & Missing Acceptance Criteria Gate and needs-info', () => {
+    const autoworkPath = path.join(promptsDir, 'autowork.md');
+    const autoworkContent = fs.readFileSync(autoworkPath, 'utf8');
+    expect(autoworkContent).toContain('Ambiguity & Missing Acceptance Criteria Gate');
+    expect(autoworkContent).toContain('needs-info');
+    expect(autoworkContent).toMatch(/Do not guess or invent arbitrary specifications for ambiguous issues/);
+  });
+
+  it('validates grill-me skill exists and defines rigorous interrogation phases', () => {
+    const grillSkillPath = path.join(templatesDir, 'skills', 'grill-me', 'SKILL.md');
+    expect(fs.existsSync(grillSkillPath)).toBe(true);
+    const grillContent = fs.readFileSync(grillSkillPath, 'utf8');
+    expect(grillContent).toContain('name: grill-me');
+    expect(grillContent).toContain('Challenge the Premise & Scope');
+    expect(grillContent).toContain('Stress-Test Technical Seams & Failure Modes');
+    expect(grillContent).toContain('Establish Concrete Acceptance Criteria');
+    expect(grillContent).toContain('Completion Criteria');
+  });
+
   it('ensures prompt templates in templates/prompts are strictly synchronized with .github/prompts', () => {
     const githubPromptsDir = path.resolve(process.cwd(), '.github', 'prompts');
     expect(fs.existsSync(githubPromptsDir)).toBe(true);

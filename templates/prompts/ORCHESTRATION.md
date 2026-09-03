@@ -27,8 +27,8 @@ Autowork triggers pass the target issue via environment variables (`TARGET_ISSUE
 
 Invariants deliberately upheld from this spec:
 
-- **Single-flight per issue** — at most one run works an issue at a time, enforced by the autowork claim protocol (assign → read-back → earliest-timestamp tiebreak). For **umbrella** issues, single-flight is maintained at the *child-issue* level so slices progress cleanly.
-- **Recover dead-run claims** — a crashed run's orphaned claim is released back to the pool rather than starving the issue, both opportunistically during candidate selection and periodically via issues housekeeping.
+- **Single-flight per issue and PR convergence** — at most one run works an issue or pull request at a time, enforced by the autowork claim protocol (assign → read-back → earliest-timestamp tiebreak). For **umbrella** issues, single-flight is maintained at the *child-issue* level so slices progress cleanly.
+- **Recover dead-run claims** — a crashed run's orphaned claim is released back to the pool rather than starving the issue or PR, both opportunistically during candidate selection and periodically via issues housekeeping.
 - **Reader/writer separation** — the routine that authors a PR never merges it; the Peer Review routine is the sole merge authority for **product** PRs. (Operational log-only PRs are exempt; see Log delivery fallback.)
 - **Warm-Context Review Synchronization** — Autowork maintains an active warm session during implementation, polling for Peer Review's verdict. When Peer Review bounces a PR to draft with findings, Autowork immediately detects the draft state in-session, applies fixes directly to its warm working tree, and re-marks the PR ready—re-firing Peer Review for Round N+1 without cold-start overhead.
 
@@ -45,6 +45,16 @@ Single source of truth for both autowork candidate reclamation and housekeeping 
 **Releasing a stale claim is a destructive write and MUST be guarded:**
 - **Re-read immediately before writing.** Re-read the issue (`issue_read`) right before the unassign and re-confirm conditions 1–3 still hold. If any no longer holds, abort the release and move on.
 - **Remove only the named dead owner.** Unassign that specific login; never blindly clear all assignees.
+
+---
+
+## PR Stale-Claim Definition (Phase 1 Convergence)
+
+Single source of truth for Autowork Phase 1 pull request convergence. An assigned pull request or draft PR with unaddressed review comments is a *stale claim* (safe to reclaim and reassign by another runner) only when **all** of these hold:
+
+1. **It carries an autowork claim comment**: The PR thread contains `🔒 Addressing review findings by autowork run …` or `🔒 Addressing review findings by local autowork session …`.
+2. **The claim is old**: The most recent claim comment's `created_at` is **more than 2 hours** ago. (2 hours instead of 6 hours because PR review convergence is a rapid turnaround loop).
+3. **No active commits or review activity**: No new commit has been pushed to the PR branch within the last 2 hours.
 
 ---
 
@@ -194,7 +204,8 @@ How agent routines are partitioned between cloud GitHub Actions (24/7 cloud runn
 2. **PR Priority Mirroring**: When Autowork opens a PR, it automatically mirrors the parent issue's priority labels (`priority/P0`..`P3`) onto the pull request so downstream review workflows can filter triggers without extra API overhead.
 3. **Workspace Isolation via Git Worktrees**: Local agents execute inside ephemeral worktrees (`.jonah-fleet/worktrees/<routine>-<issue>`) off `origin/main`, ensuring active editor sessions, uncommitted changes, and local branches are never modified or disturbed.
 4. **Local Claim Protocol**:
-   - Local agent claims post: `🔒 Claimed by local autowork session (host: <hostname>) <timestamp>`.
+   - Local agent issue claims post: `🔒 Claimed by local autowork session (host: <hostname>) <timestamp>`.
+   - Local agent PR convergence claims post: `🔒 Addressing review findings by local autowork session (host: <hostname>) <timestamp>`.
    - Local processes trap `SIGINT`/`SIGTERM` to unassign claims and remove worktrees cleanly on exit.
-   - Standard 6-hour stale-claim rule safely reclaims orphaned local claims if a machine powers down unexpectedly.
+   - Standard stale-claim rules (6h for issues, 2h for PRs) safely reclaim orphaned local claims if a machine powers down unexpectedly.
 

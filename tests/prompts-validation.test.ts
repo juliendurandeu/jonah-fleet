@@ -259,6 +259,25 @@ describe('Prompt Validation & Invariants', () => {
     expect(grillContent).toContain('Completion Criteria');
   });
 
+  it('validates autowork.md and ORCHESTRATION.md define the single-flight PR Claim Protocol in Phase 1', () => {
+    const autoworkPath = path.join(promptsDir, 'autowork.md');
+    const orchestrationPath = path.join(templatesDir, 'prompts', 'ORCHESTRATION.md');
+    const autoworkContent = fs.readFileSync(autoworkPath, 'utf8');
+    const orchestrationContent = fs.readFileSync(orchestrationPath, 'utf8');
+
+    // Autowork constraints & DoD
+    expect(autoworkContent).toContain('Single-flight per issue & PR');
+    expect(autoworkContent).toContain('PR Claim Protocol');
+    expect(autoworkContent).toContain('🔒 Addressing review findings by autowork run');
+    expect(autoworkContent).toContain('🔒 Addressing review findings by local autowork session');
+    expect(autoworkContent).toContain('Warm Context Assignment');
+
+    // ORCHESTRATION.md invariant and stale claim definition
+    expect(orchestrationContent).toContain('Single-flight per issue and PR convergence');
+    expect(orchestrationContent).toContain('## PR Stale-Claim Definition (Phase 1 Convergence)');
+    expect(orchestrationContent).toMatch(/more than 2 hours/i);
+  });
+
   it('ensures prompt templates in templates/prompts are strictly synchronized with .github/prompts', () => {
     const githubPromptsDir = path.resolve(process.cwd(), '.github', 'prompts');
     expect(fs.existsSync(githubPromptsDir)).toBe(true);

@@ -77,20 +77,42 @@ export function isDaemonRunning(repoRoot: string): boolean {
   }
 }
 
+export interface ReviewablePR {
+  number: number;
+  headRefName: string;
+  title: string;
+}
+
+/**
+ * Fast pre-flight check to query open ready PRs in ~100ms with 0 token cost,
+ * excluding drafts, automated release-please branches, and release PR titles.
+ */
+export async function getOpenReviewablePRs(repoRoot: string): Promise<ReviewablePR[]> {
+  try {
+    const { stdout } = await execFileAsync(
+      'gh',
+      ['pr', 'list', '--state', 'open', '--draft=false', '--json', 'number,headRefName,title'],
+      { cwd: repoRoot }
+    );
+    const prs = JSON.parse(stdout) as ReviewablePR[];
+    return prs.filter(
+      (pr) =>
+        pr &&
+        typeof pr.number === 'number' &&
+        !pr.headRefName?.startsWith('release-please--') &&
+        !pr.title?.startsWith('chore(main): release')
+    );
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Fast pre-flight check to query number of open ready PRs in ~100ms with 0 token cost.
  */
 export async function countOpenReadyPRs(repoRoot: string): Promise<number> {
-  try {
-    const { stdout } = await execFileAsync(
-      'gh',
-      ['pr', 'list', '--state', 'open', '--draft=false', '--json', 'number', '--jq', 'length'],
-      { cwd: repoRoot }
-    );
-    return parseInt(stdout.trim(), 10) || 0;
-  } catch {
-    return 0;
-  }
+  const prs = await getOpenReviewablePRs(repoRoot);
+  return prs.length;
 }
 
 /**
@@ -244,15 +266,15 @@ export async function runDaemonLoop(repoRoot: string, options: DaemonOptions = {
   process.once('SIGINT', handleStop);
   process.once('SIGTERM', handleStop);
 
-  const runReviewCheck = async () => {
+  const drainReviewQueue = async (): Promise<void> => {
     if (isStopping || isWorking) return;
     state.lastReviewCheckAt = new Date().toISOString();
     writeDaemonState(repoRoot, state);
 
-    const openPRCount = await countOpenReadyPRs(repoRoot);
-    lastOpenPRCount = openPRCount;
+    let reviewablePRs = await getOpenReviewablePRs(repoRoot);
+    lastOpenPRCount = reviewablePRs.length;
 
-    if (openPRCount === 0) {
+    if (reviewablePRs.length === 0) {
       if (options.verbose) {
         console.log(pc.dim(`[${new Date().toLocaleTimeString()}] Peer Review Watchdog: 0 ready PRs found (0 tokens used).`));
       }
@@ -261,48 +283,115 @@ export async function runDaemonLoop(repoRoot: string, options: DaemonOptions = {
       return;
     }
 
-    try {
-      isWorking = true;
-      clearTicker();
-      state.status = 'working';
-      state.activeRoutine = 'peer-review';
-      writeDaemonState(repoRoot, state);
+    const attemptedPRNumbers = new Set<number>();
 
-      console.log(pc.cyan(`\n[${new Date().toLocaleTimeString()}] 🔍 Peer Review Watchdog: Found ${openPRCount} ready PR(s). Starting review session...`));
-      await cleanupStaleWorktrees(repoRoot);
-
-      const result = await runLocalRoutine({
-        targetDir: repoRoot,
-        routine: 'peer-review',
-        model: options.model,
-        verbose: options.verbose,
-        noWorktree: false,
-        onTargetDetected: (target) => {
-          state.activeTarget = target;
-          writeDaemonState(repoRoot, state);
-        },
-      });
-
-      if (result.success) {
-        console.log(pc.green(`✓ Local peer-review completed successfully.\n`));
-      } else {
-        console.warn(pc.yellow(`⚠️  Local peer-review completed with code ${result.exitCode}.\n`));
+    while (!isStopping && reviewablePRs.length > 0) {
+      const candidatePRs = reviewablePRs.filter((pr) => !attemptedPRNumbers.has(pr.number));
+      if (candidatePRs.length === 0) {
+        if (options.verbose) {
+          console.log(
+            pc.dim(
+              `[${new Date().toLocaleTimeString()}] All ${reviewablePRs.length} remaining ready PR(s) were already evaluated in this drain pass.`
+            )
+          );
+        }
+        break;
       }
-    } catch (err: any) {
-      console.error(pc.red(`✗ Error in peer-review: ${err.message}`));
-    } finally {
-      isWorking = false;
-      state.status = 'idle';
-      state.activeRoutine = undefined;
-      state.activeTarget = undefined;
-      writeDaemonState(repoRoot, state);
-      nextReviewCheckTime = Date.now() + reviewIntervalMs;
-      updateTicker();
+
+      const totalRemaining = candidatePRs.length;
+      let targetPRStr: string | undefined = undefined;
+
+      try {
+        isWorking = true;
+        clearTicker();
+        state.status = 'working';
+        state.activeRoutine = 'peer-review';
+        writeDaemonState(repoRoot, state);
+
+        console.log(
+          pc.cyan(
+            `\n[${new Date().toLocaleTimeString()}] 🔍 Peer Review Watchdog: Draining PR backlog (${totalRemaining} PR(s) remaining). Starting review session...`
+          )
+        );
+        await cleanupStaleWorktrees(repoRoot);
+
+        const result = await runLocalRoutine({
+          targetDir: repoRoot,
+          routine: 'peer-review',
+          model: options.model,
+          verbose: options.verbose,
+          noWorktree: false,
+          onTargetDetected: (target) => {
+            targetPRStr = target;
+            state.activeTarget = target;
+            writeDaemonState(repoRoot, state);
+          },
+        });
+
+        // Record attempted PR number from detected target or candidate list
+        const activeTargetStr = targetPRStr as string | undefined;
+        const match = activeTargetStr?.match(/PR\s*#?([0-9]+)/i);
+        if (match) {
+          attemptedPRNumbers.add(parseInt(match[1], 10));
+        } else if (candidatePRs[0]) {
+          attemptedPRNumbers.add(candidatePRs[0].number);
+        }
+
+        if (result.success) {
+          console.log(pc.green(`✓ Local peer-review completed successfully.\n`));
+        } else {
+          console.warn(pc.yellow(`⚠️  Local peer-review completed with code ${result.exitCode}.\n`));
+        }
+      } catch (err: any) {
+        console.error(pc.red(`✗ Error in peer-review: ${err.message}`));
+        if (candidatePRs[0]) {
+          attemptedPRNumbers.add(candidatePRs[0].number);
+        }
+      } finally {
+        isWorking = false;
+        state.status = 'idle';
+        state.activeRoutine = undefined;
+        state.activeTarget = undefined;
+        writeDaemonState(repoRoot, state);
+      }
+
+      // Re-query reviewable PRs after session
+      reviewablePRs = await getOpenReviewablePRs(repoRoot);
+      lastOpenPRCount = reviewablePRs.length;
     }
+
+    nextReviewCheckTime = Date.now() + reviewIntervalMs;
+    updateTicker();
   };
 
-  const runAutoworkCheck = async () => {
+  const runAutoworkCheck = async (): Promise<void> => {
     if (isStopping || isWorking || !routines.includes('autowork')) return;
+
+    // Strict priority invariant: drain reviewable PRs before running autowork
+    if (routines.includes('peer-review')) {
+      const pendingPRs = await countOpenReadyPRs(repoRoot);
+      if (pendingPRs > 0) {
+        console.log(
+          pc.cyan(
+            `\n[${new Date().toLocaleTimeString()}] ⏳ Autowork paused: draining ${pendingPRs} reviewable PR(s) first...`
+          )
+        );
+        await drainReviewQueue();
+
+        const remainingPRs = await countOpenReadyPRs(repoRoot);
+        if (remainingPRs > 0) {
+          console.log(
+            pc.yellow(
+              `\n[${new Date().toLocaleTimeString()}] ⚠️  Review backlog still has ${remainingPRs} pending PR(s). Postponing autowork session.`
+            )
+          );
+          nextAutoworkCheckTime = Date.now() + autoworkIntervalMs;
+          updateTicker();
+          return;
+        }
+      }
+    }
+
     state.lastAutoworkCheckAt = new Date().toISOString();
     writeDaemonState(repoRoot, state);
 
@@ -343,19 +432,32 @@ export async function runDaemonLoop(repoRoot: string, options: DaemonOptions = {
       writeDaemonState(repoRoot, state);
       nextAutoworkCheckTime = Date.now() + autoworkIntervalMs;
       updateTicker();
+
+      // Immediate post-autowork convergence sweep: if autowork opened/readied a PR, drain it immediately!
+      if (!isStopping && routines.includes('peer-review')) {
+        const newPRCount = await countOpenReadyPRs(repoRoot);
+        if (newPRCount > 0) {
+          console.log(
+            pc.cyan(
+              `\n[${new Date().toLocaleTimeString()}] 🔄 Post-autowork convergence: Found ${newPRCount} ready PR(s). Initiating review sweep...`
+            )
+          );
+          await drainReviewQueue();
+        }
+      }
     }
   };
 
-  // Run initial checks on start
+  // Run initial checks on start: drain review queue first, then move to autowork
   if (routines.includes('peer-review')) {
-    await runReviewCheck();
+    await drainReviewQueue();
   }
-  if (routines.includes('autowork')) {
+  if (!isStopping && routines.includes('autowork')) {
     await runAutoworkCheck();
   }
 
   // Set up decoupled timers
-  const reviewTimer = setInterval(runReviewCheck, reviewIntervalMs);
+  const reviewTimer = setInterval(drainReviewQueue, reviewIntervalMs);
   const autoworkTimer = setInterval(runAutoworkCheck, autoworkIntervalMs);
 
   // Keep process alive

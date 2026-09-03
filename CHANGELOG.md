@@ -20,6 +20,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Implemented `evaluateIssueAmbiguity()`, `runAmbiguityBenchmark()`, `extractBenchmarkCaseFromLog()`, and `feedOptimizerCaseToBenchmark()` in `src/lib/evals.ts`.
   - Added unit tests in `tests/evals.test.ts` verifying 100% benchmark accuracy, 0% false compliance rate (yes-man error), question generation, and dynamic optimizer case feeding.
 
+## [1.6.0](https://github.com/juliendurandeu/jonah-fleet/compare/jonah-fleet-v1.5.0...jonah-fleet-v1.6.0) (2026-09-03)
+
+
+### Features
+
+* **autowork:** single-flight PR claim protocol in Phase 1 convergence ([#59](https://github.com/juliendurandeu/jonah-fleet/issues/59)) ([991e3f6](https://github.com/juliendurandeu/jonah-fleet/commit/991e3f6d3848bbb8dda7e6b8667533dc0ffef56d))
+* **daemon:** display target PR/issue ID & title and wrap terminal card lines without cropping ([#60](https://github.com/juliendurandeu/jonah-fleet/issues/60)) ([43a3abb](https://github.com/juliendurandeu/jonah-fleet/commit/43a3abb51f86b5f0368ea2fdfc0f26e38f833ab9))
+* **daemon:** drain reviewable PR backlog before moving to autowork ([#62](https://github.com/juliendurandeu/jonah-fleet/issues/62)) ([eeb9d57](https://github.com/juliendurandeu/jonah-fleet/commit/eeb9d57e5df4d00fa0b9f824ff231b7df9625386))
+
 ## [1.5.0](https://github.com/juliendurandeu/jonah-fleet/compare/jonah-fleet-v1.4.2...jonah-fleet-v1.5.0) (2026-09-03)
 
 

@@ -35,11 +35,12 @@ describe('Release Configuration & Manifests', () => {
     expect(fs.existsSync(workflowPath)).toBe(true);
 
     const workflowContent = fs.readFileSync(workflowPath, 'utf8');
-    expect(workflowContent).toContain('google-github-actions/release-please-action');
+    expect(workflowContent).toMatch(/(google-github-actions|googleapis)\/release-please-action/);
     expect(workflowContent).toContain('token: ${{ secrets.GH_PAT || github.token }}');
     expect(workflowContent).toContain('id-token: write');
     expect(workflowContent).toContain('contents: write');
     expect(workflowContent).toContain('pull-requests: write');
+    expect(workflowContent).toContain('issues: write');
     expect(workflowContent).toContain('npm publish --provenance --access public');
   });
 });

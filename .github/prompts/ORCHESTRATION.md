@@ -178,3 +178,20 @@ How closed-loop feedback from product telemetry and measurement trackers drives 
 2. **Feature Pruning & Deprecation Audit**: During Propose mode sweeps, `product-planning` actively audits shipped roadmap items and closed measurement trackers. For features with low ROI (<2% adoption, >50% error/failure rate), it drafts explicit deprecation, removal, or simplification proposals alongside new feature additions, keeping the codebase and UI lean.
 3. **Intent vs. Defect Guardrail**: When investigating underperforming or zero-conversion features, `autowork` and `diagnosing-bugs` verify whether the issue is a software defect or a lack of user intent. If the feature functions properly without runtime errors but user interaction is negligible, agents must classify the issue as a **product/UX intent question** (`needs-design` / `roadmap/*`) rather than falling into the **Telemetry Rabbit Hole** (adding redundant fallback telemetry, defensive error handling, or retry loops for unwanted features).
 
+---
+
+## Priority-Driven Dual Agent Execution (GitHub Actions + Local Agents)
+
+How agent routines are partitioned between cloud GitHub Actions (24/7 cloud runners for fast time-to-resolution) and local machine agents (`jonah-fleet run` / `jonah-fleet daemon` for zero cloud quota consumption):
+
+1. **Priority Routing Rules**:
+   - **`priority/P0` & `priority/P1` & Bugs**: Processed immediately by cloud GitHub Actions upon event trigger (`issues`, `pull_request`, `schedule`).
+   - **`priority/P2` & `priority/P3` (Lower Priority)**: Handled primarily by local machine agents in isolated Git worktrees. Cloud Actions skips immediate event triggers on P2/P3 items to conserve Actions quota.
+   - **Cloud Catchup Sweep (48h Fallback)**: If a P2/P3 issue or PR remains unclaimed/unreviewed for $>48\text{ hours}$ (e.g. because local machines were offline), the scheduled cloud Actions scan sweep automatically picks it up to prevent work starvation.
+2. **PR Priority Mirroring**: When Autowork opens a PR, it automatically mirrors the parent issue's priority labels (`priority/P0`..`P3`) onto the pull request so downstream review workflows can filter triggers without extra API overhead.
+3. **Workspace Isolation via Git Worktrees**: Local agents execute inside ephemeral worktrees (`.jonah-fleet/worktrees/<routine>-<issue>`) off `origin/main`, ensuring active editor sessions, uncommitted changes, and local branches are never modified or disturbed.
+4. **Local Claim Protocol**:
+   - Local agent claims post: `🔒 Claimed by local autowork session (host: <hostname>) <timestamp>`.
+   - Local processes trap `SIGINT`/`SIGTERM` to unassign claims and remove worktrees cleanly on exit.
+   - Standard 6-hour stale-claim rule safely reclaims orphaned local claims if a machine powers down unexpectedly.
+

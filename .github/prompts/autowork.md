@@ -84,14 +84,20 @@ b. **Eligible → claim, then implement.** Call `get_me` once to learn your own 
 
 6. Count open PRs authored by automated sessions representing live reviewable work (excluding log-only PRs). If 3 or more non-log PRs are open, STOP — run is SUCCESS with "Too many open PRs, converging first".
 7. Call `get_me` once to learn your own GitHub account (`login`).
-8. List open issues sorted by priority labels (P1 > P2 > P3). Within the same priority tier, order by type (`bug`/`security` before others), then oldest first. Skip assigned issues (unless stale claim per `ORCHESTRATION.md`), issues with open PRs, issues with unclosed blocking dependencies (`Blocked by #N` / `Depends on #N`), issues labeled `needs-human` or `needs-design`, and issues under cross-run cooldown.
+8. List open issues sorted by priority labels (P1 > P2 > P3). Within the same priority tier, order by type (`bug`/`security` before others), then oldest first.
+   - **Dual Execution Priority Routing**:
+     - If running in **Cloud Actions** (`$GITHUB_ACTIONS` / `$CI`): Scan mode selects `priority/P0` or `priority/P1` issues first. Lower-priority `priority/P2` or `priority/P3` issues are eligible in cloud Scan mode ONLY if the issue has remained unclaimed for more than 48 hours (`created_at` older than 48h, acting as a cloud catchup sweep).
+     - If running in **Local Agent** (`$LOCAL_AGENT`): Scan mode selects across all priorities (P0 → P1 → P2 → P3) without time gating, prioritizing active local backlog consumption.
+   - Skip assigned issues (unless stale claim per `ORCHESTRATION.md`), issues with open PRs, issues with unclosed blocking dependencies (`Blocked by #N` / `Depends on #N`), issues labeled `needs-human` or `needs-design`, and issues under cross-run cooldown.
 9. If no eligible candidate exists, STOP — run is SUCCESS with "No unclaimed work available".
 10. If the candidate should be closed already (work done, PRs merged), close it and return to step 8.
 10a. **Stale-claim reclamation:** If candidate is a stale claim per `ORCHESTRATION.md`, re-read immediately before writing, unassign the dead owner, post reclamation comment, and proceed to claim.
 11. **Claim protocol:**
     a. Re-read candidate issue immediately before claiming (`issue_read`). If assigned, abort and pick next candidate.
-    b. Claim atomically: assign yourself (`login` from step 7) AND post claim comment `🔒 Claimed by autowork run {timestamp}`.
-    c. Confirm sole ownership by counting `🔒 Claimed by autowork run` comments. Earliest `created_at` wins. If you lost the race, leave assignee as is, annotate your comment, and pick next candidate.
+    b. Claim atomically: assign yourself (`login` from step 7) AND post claim comment:
+       - In **Cloud Actions**: `🔒 Claimed by autowork run {run_url} {timestamp}`
+       - In **Local Agent**: `🔒 Claimed by local autowork session (host: {hostname}) {timestamp}`
+    c. Confirm sole ownership by counting `🔒 Claimed by autowork run` / `🔒 Claimed by local autowork session` comments. Earliest `created_at` wins. If you lost the race, leave assignee as is, annotate your comment, and pick next candidate.
 12. Evaluate whether the claimed issue can be completed autonomously:
     - Confirm your `🔒` claim comment is present on the issue.
     - Read the issue description, linked code, and comment thread.
@@ -109,6 +115,7 @@ b. **Eligible → claim, then implement.** Call `get_me` once to learn your own 
     - Run repository tests and verification.
     - Check for competing open PRs immediately before creating PR. If collision, bail cleanly.
     - Open draft PR via `gh pr create --draft --head <branch> --base main --title "<title>" --body "<body referencing Closes #N>"`.
+    - **PR Priority Label Mirroring**: If the issue carried a priority label (`priority/P0`, `priority/P1`, `priority/P2`, `priority/P3`), add the identical priority label to the PR (`gh pr edit <PR> --add-label "<label>"` or via `--label` in create) so downstream review workflows can filter triggers immediately.
     - Verify PR URL returned. Update issue `## Tasks` checkboxes.
     - Mark PR ready (`gh pr ready <PR>`).
 14. If run aborts before opening PR, release claim (unassign).

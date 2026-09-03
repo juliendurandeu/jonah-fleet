@@ -5,6 +5,8 @@ import { runStatus } from './commands/status.js';
 import { runMonitor } from './commands/monitor.js';
 import { runContribute } from './commands/contribute.js';
 import { runTelemetry } from './commands/telemetry.js';
+import { runRoutineCommand } from './commands/run.js';
+import { runDaemonCommand } from './commands/daemon.js';
 import { FLEET_VERSION } from './lib/presets.js';
 
 const program = new Command();
@@ -13,6 +15,31 @@ program
   .name('jonah-fleet')
   .description('Manage autonomous agent fleet, prompt routines, workflows, and skills')
   .version(FLEET_VERSION);
+
+program
+  .command('run <routine>')
+  .description('Run a specific prompt routine locally in an isolated git worktree')
+  .option('-i, --issue <number>', 'Targeted issue number for autowork')
+  .option('-p, --pr <number>', 'Targeted pull request number for peer-review')
+  .option('-m, --model <model>', 'LLM model override (defaults to gemini-3.7-flash-high)')
+  .option('--timeout <duration>', 'CLI execution print timeout (default: 30m)')
+  .option('--no-worktree', 'Execute directly in current directory without creating a git worktree')
+  .option('--keep-worktree', 'Preserve the git worktree after routine execution completes')
+  .option('-d, --dry-run', 'Preview prompt and execution parameters without launching agent')
+  .action(async (routine, options) => {
+    await runRoutineCommand(routine, options);
+  });
+
+program
+  .command('daemon [action]')
+  .description('Manage background local worker daemon polling for unclaimed issues and pull requests')
+  .option('-i, --interval <minutes>', 'Polling interval in minutes (default: 30)')
+  .option('-r, --routines <list>', 'Comma-separated routines to run (default: autowork,peer-review)')
+  .option('-m, --model <model>', 'LLM model override')
+  .option('--foreground', 'Run daemon in foreground with live console logs')
+  .action(async (action, options) => {
+    await runDaemonCommand(action, options);
+  });
 
 program
   .command('init')

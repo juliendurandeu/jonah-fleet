@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Priority-Driven Dual Agent Execution (Local + GitHub Actions):
+  - Added CLI `jonah-fleet run <routine>` command to execute prompt routines locally with automatic Git worktree isolation (`.jonah-fleet/worktrees/`), protecting active working copies and uncommitted editor files.
+  - Added CLI `jonah-fleet daemon [start|stop|status]` background worker to continuously poll open issues and PRs for local execution.
+  - Added `dualExecution` configuration schema in `agents-manifest.json` and `schema.json` supporting configurable `cloudPriorities` (default: `['P0', 'P1']`) and `cloudCatchupHours` (default: `48`).
+  - Added PR priority label mirroring in `autowork.md` to automatically mirror `priority/PX` labels onto opened PRs.
+  - Added dual routing and 48-hour cloud catchup logic in `autowork.md`, `peer-review.md`, and `trigger-review-routine.yml`.
+  - Added Git worktree isolation manager (`src/lib/worktree.ts`) and local routine runner (`src/lib/runner.ts`).
 - Design System & Telemetry Friction Guardrails in Core Routines:
   - Added Design System & Viewport Density Pass to `peer-review.md` (`templates/prompts/peer-review.md` & `.github/prompts/peer-review.md`) enforcing Token Purity, WCAG AA 4.5:1 contrast ratios, single primary CTA hierarchy, and mobile viewport budget checks on UI diffs (#49).
   - Added Design System & Viewport Pre-flight to `autowork.md` (`templates/prompts/autowork.md` & `.github/prompts/autowork.md`) in Pre-ready self-audit (#49).

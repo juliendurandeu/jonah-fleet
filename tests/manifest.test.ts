@@ -15,6 +15,7 @@ describe('Manifest generation', () => {
     expect(manifest.routines['analytics-review']).toBe(false);
     expect(manifest.skills).toContain('tdd');
     expect(manifest.skills).toContain('code-review');
+    expect(manifest.skills).toContain('grill-me');
   });
 
   it('generates a minimal manifest', () => {
@@ -32,6 +33,7 @@ describe('Manifest generation', () => {
     expect(manifest.preset).toBe('full');
     expect(manifest.routines['product-planning']).toBe(true);
     expect(manifest.routines['analytics-review']).toBe(true);
+    expect(manifest.skills).toContain('grill-me');
     expect(manifest.skills).toContain('to-spec');
     expect(manifest.skills).toContain('to-tickets');
   });

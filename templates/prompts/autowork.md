@@ -43,6 +43,7 @@ If any criterion cannot be met, stop immediately and log FAILURE with the reason
 - Do not start implementing an issue before claiming it (both assignment AND claim comment).
 - Do not mark a PR ready while its `mergeable_state` is `dirty` — resolve merge conflicts first.
 - Do not fall into the **Telemetry Rabbit Hole**: do not spend cycles instrumenting elaborate fallback telemetry or defensive error handling for features that suffer from lack of user intent rather than software bugs.
+- Do not guess or invent arbitrary specifications for ambiguous issues — post clarifying questions, label `needs-info`, and release the claim instead of blindly writing code.
 
 ## Instructions
 
@@ -85,10 +86,13 @@ b. **Eligible → claim, then implement.** Call `get_me` once to learn your own 
 6. Count open PRs authored by automated sessions representing live reviewable work (excluding log-only PRs). If 3 or more non-log PRs are open, STOP — run is SUCCESS with "Too many open PRs, converging first".
 7. Call `get_me` once to learn your own GitHub account (`login`).
 8. List open issues sorted by priority labels (P1 > P2 > P3). Within the same priority tier, order by type (`bug`/`security` before others), then oldest first.
+   - **Selective Server-Side Querying**: To prevent tool buffer truncation and avoid ingesting un-actionable issues, query GitHub with server-side exclusion filters rather than dumping all issues. E.g.:
+     `gh issue list --state open --search "no:assignee -label:measurement -label:needs-human -label:needs-design -label:wontfix -label:needs-info" --limit 30`
+     (or filter by priority tier: `--search "label:priority/P0,priority/P1 no:assignee -label:measurement -label:needs-human -label:needs-design -label:wontfix -label:needs-info"`).
    - **Dual Execution Priority Routing**:
      - If running in **Cloud Actions** (`$GITHUB_ACTIONS` / `$CI`): Scan mode selects `priority/P0` or `priority/P1` issues first. Lower-priority `priority/P2` or `priority/P3` issues are eligible in cloud Scan mode ONLY if the issue has remained unclaimed for more than 48 hours (`created_at` older than 48h, acting as a cloud catchup sweep).
      - If running in **Local Agent** (`$LOCAL_AGENT`): Scan mode selects across all priorities (P0 → P1 → P2 → P3) without time gating, prioritizing active local backlog consumption.
-   - Skip assigned issues (unless stale claim per `ORCHESTRATION.md`), issues with open PRs, issues with unclosed blocking dependencies (`Blocked by #N` / `Depends on #N`), issues labeled `needs-human` or `needs-design`, and issues under cross-run cooldown.
+   - Skip assigned issues (unless stale claim per `ORCHESTRATION.md`), issues with open PRs, issues with unclosed blocking dependencies (`Blocked by #N` / `Depends on #N`), issues labeled `needs-human`, `needs-design`, or `needs-info`, and issues under cross-run cooldown.
 9. If no eligible candidate exists, STOP — run is SUCCESS with "No unclaimed work available".
 10. If the candidate should be closed already (work done, PRs merged), close it and return to step 8.
 10a. **Stale-claim reclamation:** If candidate is a stale claim per `ORCHESTRATION.md`, re-read immediately before writing, unassign the dead owner, post reclamation comment, and proceed to claim.
@@ -103,6 +107,11 @@ b. **Eligible → claim, then implement.** Call `get_me` once to learn your own 
     - Read the issue description, linked code, and comment thread.
     - If bug: use `/diagnosing-bugs` to establish reproduction test before fixing.
     - If large/complex: use `/domain-modeling` and `/codebase-design`.
+    - **Ambiguity & Missing Acceptance Criteria Gate**: Challenge underspecified or incomplete requests before writing any code. If the issue lacks observable acceptance criteria, relies on unverified assumptions, or leaves critical technical/UX decisions ambiguous:
+      - Do NOT guess or invent arbitrary requirements to force completion.
+      - Post a comment on the issue posing 1–3 focused clarifying questions that identify the exact decisions or trade-offs needed.
+      - Apply the `needs-info` label and release the claim (unassign).
+      - Select the next candidate (evaluating ambiguous issues counts toward step 12's infeasible-continuation cap).
     - **Intent vs. Defect Guardrail**: When investigating issues related to low conversion, zero-click events, or underperforming features: verify whether the issue is a software defect or a lack of user intent. If data indicates the root cause is **lack of user intent** (e.g. button is rendered above fold and functions correctly when clicked, but user interaction rate is <2%) rather than a software defect, do NOT fall into the **telemetry rabbit hole** (adding elaborate fallback telemetry, downstream error handling, or defensive rendering). Categorize the issue as a **product/UX question** (`needs-design` / `roadmap/*`), comment explaining the lack of user intent, release the claim (unassign), and select the next candidate.
     - If infeasible: comment explaining blocker, release claim (unassign), and select next candidate (up to 3 infeasible evaluations per run). If permanent blocker on 2nd strike, apply `needs-human` label and tag repo owner.
 12a. **Umbrella-issue handoff + batching:** If candidate is an umbrella epic:

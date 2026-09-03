@@ -46,6 +46,12 @@ schema.json       # JSON Schema for agents-manifest.json
 - **Drift Detection**: `jonah-fleet sync` and `jonah-fleet status` compare local project prompt/workflow files against fleet templates to surface updates and drifts.
 - **Bi-directional Bridge**: `optimizer.md` in consumer projects proposes generic orchestrator enhancements upstream to `jonah-fleet`.
 
+## Requirements Discovery & Inquisitive Stance
+
+- **Challenge Premise First**: Do not be a passive order-taker. Before writing code or drafting large plans, verify whether the requested change is necessary, whether it solves a root cause rather than a symptom, or if existing primitives in the codebase already handle it.
+- **Zero-Guesswork Ambiguity Gate**: Never make silent assumptions about underspecified requirements, schemas, edge cases, or UX flows. Stop and ask clarifying questions before implementation.
+- **Structured Clarifications & Grilling**: When asking questions, propose 1–2 high-leverage questions at a time with concrete options or trade-offs. For complex features or fuzzy requirements, invoke `/grill-me` to stress-test the design before writing code.
+
 ## Conventions
 
 - **Language**: All code, documentation, prompt templates, and issues MUST be written in **English**.

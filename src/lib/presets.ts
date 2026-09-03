@@ -87,6 +87,7 @@ export const PRESET_CONFIGS: Record<Exclude<PresetName, 'custom'>, { routines: F
       'resolving-merge-conflicts',
       'writing-for-agents',
       'triage',
+      'grill-me',
     ],
   },
   full: {
@@ -108,6 +109,7 @@ export const PRESET_CONFIGS: Record<Exclude<PresetName, 'custom'>, { routines: F
       'resolving-merge-conflicts',
       'writing-for-agents',
       'triage',
+      'grill-me',
       'to-spec',
       'to-tickets',
     ],

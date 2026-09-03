@@ -83,8 +83,11 @@ The routines invoke specialized engineering skills at key workflow checkpoints:
   - `/resolving-merge-conflicts`: Resolves merge conflicts mechanically before squash-merging.
 - **Issues Housekeeping (`issues-housekeeping.md`)**:
   - `/triage`: Evaluates incoming issues into canonical roles.
+- **Triage & Interactive Planning**:
+  - `/grill-me`: Interrogates proposals and requirements to uncover edge cases and force explicit trade-offs before implementation.
 - **Product Planning (`product-planning.md`)**:
   - `/domain-modeling`: Pressure-tests proposals and records domain terms / ADRs.
+  - `/grill-me`: Stress-tests proposed roadmaps and user stories.
   - `/to-spec`: Authors formal PRDs for larger proposals.
   - `/to-tickets`: Decomposes approved epics/proposals into dependency-linked issues.
 - **Prompt Optimizer (`optimizer.md`)**:

@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import pc from 'picocolors';
 
 export interface SummaryCardOptions {
@@ -8,6 +9,7 @@ export interface SummaryCardOptions {
   repoRoot?: string;
   issue?: string | number;
   pr?: string | number;
+  title?: string;
   durationMs?: number;
 }
 
@@ -24,12 +26,80 @@ export interface ErrorCardOptions {
 export interface ParsedRunSummary {
   routine?: string;
   target?: string;
+  title?: string;
   decision?: string;
   result?: string;
   duration?: string;
   passes?: Array<{ name: string; status: 'pass' | 'fail' | 'info'; detail?: string }>;
   actions?: string[];
   logPath?: string;
+}
+
+/**
+ * Strips ANSI color codes to accurately measure visual string length.
+ */
+export function stripAnsi(text: string): string {
+  // eslint-disable-next-line no-control-regex
+  return text.replace(/\x1b\[[0-9;]*m/g, '');
+}
+
+/**
+ * Wraps text into multiple lines bounded by maxWidth without cropping.
+ */
+export function wrapText(text: string, maxWidth: number): string[] {
+  if (maxWidth <= 0) return [text];
+  const words = text.split(/\s+/).filter(Boolean);
+  if (words.length === 0) return [];
+  const lines: string[] = [];
+  let current = '';
+
+  for (const word of words) {
+    if (!current) {
+      current = word;
+    } else {
+      const proposed = current + ' ' + word;
+      if (stripAnsi(proposed).length <= maxWidth) {
+        current = proposed;
+      } else {
+        lines.push(current);
+        current = word;
+      }
+    }
+  }
+  if (current) lines.push(current);
+  return lines;
+}
+
+/**
+ * Fetches PR or issue title using GitHub CLI with a tight timeout.
+ */
+export function fetchTargetTitle(repoRoot: string, target: string): string | null {
+  try {
+    const prMatch = target.match(/PR\s*#?(\d+)/i);
+    if (prMatch) {
+      const stdout = execFileSync('gh', ['pr', 'view', prMatch[1], '--json', 'title', '-q', '.title'], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+        timeout: 4000,
+      });
+      return stdout.trim() || null;
+    }
+
+    const issueMatch = target.match(/Issue\s*#?(\d+)/i);
+    if (issueMatch) {
+      const stdout = execFileSync('gh', ['issue', 'view', issueMatch[1], '--json', 'title', '-q', '.title'], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+        timeout: 4000,
+      });
+      return stdout.trim() || null;
+    }
+  } catch {
+    return null;
+  }
+  return null;
 }
 
 /**
@@ -55,7 +125,7 @@ export function sanitizeWorktreePaths(text: string): string {
  * Extracts the '# ... Execution Summary' section from routine output text.
  */
 export function extractExecutionSummary(output: string): string | null {
-  const summaryHeaderRegex = /#\s+([A-Za-z0-9\s_-]+?Execution\s+Summary[\s\S]*)/i;
+  const summaryHeaderRegex = /#{1,3}\s+([A-Za-z0-9\s_-]*?(?:Execution|Review|Autowork)\s+Summary[\s\S]*)/i;
   const match = output.match(summaryHeaderRegex);
   if (!match) return null;
 
@@ -66,8 +136,8 @@ export function extractExecutionSummary(output: string): string | null {
     '✓ Local peer-review completed',
     '✓ Local autowork completed',
     '✓ Local agent session',
-    '[6:',
     'Peer Review Watchdog:',
+    'Autowork Backlog Scan:',
   ];
 
   for (const sep of trailingSeparators) {
@@ -75,6 +145,12 @@ export function extractExecutionSummary(output: string): string | null {
     if (idx !== -1) {
       summary = summary.slice(0, idx).trim();
     }
+  }
+
+  // Strip any trailing watchdog timestamp e.g. [11:33:37 PM] ...
+  const timestampMatch = summary.match(/\n\s*\[\d{1,2}:\d{2}:\d{2}\s*(?:AM|PM)?\][\s\S]*/);
+  if (timestampMatch && timestampMatch.index !== undefined) {
+    summary = summary.slice(0, timestampMatch.index).trim();
   }
 
   return sanitizeWorktreePaths(summary);
@@ -108,55 +184,72 @@ export function parseRunLog(logContent: string): ParsedRunSummary {
     actions: [],
   };
 
-  // Parse Metadata table
   const lines = logContent.split('\n');
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (trimmed.startsWith('|') && trimmed.includes('|')) {
-      const parts = trimmed
-        .split('|')
-        .map((p) => p.trim())
-        .filter(Boolean);
-      if (parts.length >= 2) {
-        const key = parts[0].toLowerCase();
-        const value = parts[1].replace(/`/g, '');
-        if (key.includes('routine')) summary.routine = value;
-        if (key.includes('target pr') || key.includes('target issue')) summary.target = value;
-        if (key.includes('decision')) summary.decision = value;
-        if (key.includes('result')) summary.result = value;
-        if (key.includes('duration')) summary.duration = value;
-      }
-    }
-  }
-
-  // Parse Definition of Done or passes
+  let inMetadata = false;
   let inDoD = false;
   let inFindings = false;
   let inActions = false;
 
   for (const line of lines) {
     const trimmed = line.trim();
-    if (trimmed.startsWith('## Definition of Done')) {
+
+    if (trimmed.startsWith('## Metadata')) {
+      inMetadata = true;
+      inDoD = false;
+      inFindings = false;
+      inActions = false;
+      continue;
+    } else if (trimmed.startsWith('## Definition of Done')) {
+      inMetadata = false;
       inDoD = true;
       inFindings = false;
       inActions = false;
       continue;
     } else if (trimmed.startsWith('## Code Review Findings') || trimmed.startsWith('## Findings')) {
+      inMetadata = false;
       inDoD = false;
       inFindings = true;
       inActions = false;
       continue;
-    } else if (trimmed.startsWith('## Execution Trace') || trimmed.startsWith('### Actions Taken')) {
+    } else if (
+      trimmed.startsWith('## Execution Trace') ||
+      trimmed.startsWith('### Actions Taken') ||
+      trimmed.startsWith('## Actions Taken') ||
+      trimmed.startsWith('## Artifacts')
+    ) {
+      inMetadata = false;
       inDoD = false;
       inFindings = false;
-      inActions = true;
+      inActions = trimmed.startsWith('### Actions Taken') || trimmed.startsWith('## Actions Taken');
       continue;
     } else if (trimmed.startsWith('## ')) {
+      inMetadata = false;
       inDoD = false;
       inFindings = false;
       inActions = false;
     }
 
+    // Strictly parse metadata inside ## Metadata section
+    if (inMetadata && trimmed.startsWith('|') && trimmed.includes('|')) {
+      const parts = trimmed
+        .split('|')
+        .map((p) => p.trim())
+        .filter(Boolean);
+      if (parts.length >= 2) {
+        const key = parts[0].toLowerCase();
+        const value = parts[1].replace(/[`*]/g, '').trim();
+        if (key === 'routine') summary.routine = value;
+        if (key === 'target pr' || key === 'target issue' || key === 'target') {
+          summary.target = value;
+        }
+        if (key === 'decision') summary.decision = value;
+        if (key === 'result') summary.result = value;
+        if (key === 'duration') summary.duration = value;
+        if (key === 'title' || key === 'pr title' || key === 'issue title') summary.title = value;
+      }
+    }
+
+    // Parse Definition of Done
     if (inDoD && trimmed.startsWith('|') && !trimmed.includes('Criterion') && !trimmed.includes('---')) {
       const parts = trimmed
         .split('|')
@@ -164,13 +257,21 @@ export function parseRunLog(logContent: string): ParsedRunSummary {
         .filter(Boolean);
       if (parts.length >= 2) {
         const criterion = parts[0];
-        const met = parts[1].toUpperCase() === 'YES' || parts[1].toUpperCase() === 'PASS';
-        const evidence = parts[2] ? ` (${parts[2].slice(0, 60)}...)` : '';
-        summary.passes?.push({
-          name: criterion,
-          status: met ? 'pass' : 'fail',
-          detail: evidence,
-        });
+        const metRaw = parts[1].toUpperCase();
+        const met = metRaw === 'YES' || metRaw === 'PASS';
+        const evidence = parts[2] ? parts[2].trim() : '';
+
+        // Filter out conditional "If in Scan mode and no eligible PRs exist" or N/A criteria
+        const isConditionalScan = criterion.toLowerCase().startsWith('if in scan mode and no eligible');
+        const isNA = evidence.toLowerCase().includes('n/a') || metRaw === 'N/A';
+
+        if (!isConditionalScan && !isNA) {
+          summary.passes?.push({
+            name: criterion,
+            status: met ? 'pass' : 'fail',
+            detail: evidence ? ` (${evidence})` : '',
+          });
+        }
       }
     }
 
@@ -193,6 +294,9 @@ export function detectActivePhase(chunk: string, currentPhase: string = 'Executi
   }
   if (lower.includes('🔒 claimed') || lower.includes('claimed by local autowork') || lower.includes('claimed by autowork')) {
     return 'Claimed target issue, starting implementation';
+  }
+  if (lower.includes('addressing review findings') || lower.includes('fixing review findings')) {
+    return 'Claimed bounced PR, addressing review findings';
   }
   if (lower.includes('starting review (round')) {
     return 'Claimed review window, starting review passes';
@@ -263,7 +367,7 @@ export function detectClaimedPR(chunk: string): string | null {
  * Renders a styled Unicode summary card.
  */
 export function renderSummaryCard(options: SummaryCardOptions): string {
-  const width = Math.min(Math.max((process.stdout.columns || 80) - 4, 60), 86);
+  const width = Math.min(Math.max((process.stdout.columns || 80) - 4, 64), 90);
   const horizontal = '─'.repeat(width - 2);
 
   const rawSummary = options.output ? extractExecutionSummary(options.output) : null;
@@ -282,10 +386,45 @@ export function renderSummaryCard(options: SummaryCardOptions): string {
     }
   }
 
-  // Format header details
+  // Format header target
   let target = options.pr ? `PR #${options.pr}` : options.issue ? `Issue #${options.issue}` : '';
-  if (!target && parsedFromLog?.target) target = parsedFromLog.target;
+  if (!target && parsedFromLog?.target && parsedFromLog.target.toUpperCase() !== 'YES') {
+    const rawTarget = parsedFromLog.target;
+    target = rawTarget.startsWith('#')
+      ? (options.routine === 'peer-review' ? `PR ${rawTarget}` : `Issue ${rawTarget}`)
+      : rawTarget;
+  }
+  if (!target && options.output) {
+    const targetMatch =
+      options.output.match(/Selected\s+Target\s+PR:?\s*\[?PR\s*#?(\d+)\]?/i) ||
+      options.output.match(/Starting\s+review[^\n#]*?#(\d+)/i) ||
+      options.output.match(/Target(?:ing)?\s+(?:issue|PR)\s*#?(\d+)/i) ||
+      options.output.match(/Candidate\s+issue\s*#?(\d+)/i);
+    if (targetMatch) {
+      target = options.routine === 'peer-review' ? `PR #${targetMatch[1]}` : `Issue #${targetMatch[1]}`;
+    }
+  }
 
+  // Format PR / Issue Title
+  let title = options.title || parsedFromLog?.title || '';
+  if (!title && rawSummary) {
+    const titleMatch =
+      rawSummary.match(/\[PR\s*#?\d+\s*\((`?[^`)]+`?)\)\]/i) ||
+      rawSummary.match(/Selected\s+Target\s+PR:?\s*\[.*?\]\([^)]+\)\s*\(([^)]+)\)/i) ||
+      rawSummary.match(/PR\s*#?\d+[:\s]+`?([^`\n]+)`?/i);
+    if (titleMatch) title = titleMatch[1].replace(/[`*]/g, '').trim();
+  }
+  if (!title && options.output) {
+    const titleMatch =
+      options.output.match(/Selected\s+Target\s+PR:?\s*\[PR\s*#?\d+\s*\((`?[^`)]+`?)\)\]/i) ||
+      options.output.match(/Selected\s+candidate\s+issue\s*#?\d+[:\s]+`?([^`\n]+)`?/i);
+    if (titleMatch) title = titleMatch[1].replace(/[`*]/g, '').trim();
+  }
+  if (!title && options.repoRoot && target) {
+    title = fetchTargetTitle(options.repoRoot, target) || '';
+  }
+
+  // Decision
   let decision = parsedFromLog?.decision || '';
   if (!decision && rawSummary) {
     const decisionMatch = rawSummary.match(/\*\*Final Action\*\*:\s*([^\n]+)/i);
@@ -299,22 +438,38 @@ export function renderSummaryCard(options: SummaryCardOptions): string {
   const lines: string[] = [];
   lines.push(pc.cyan(`┌${horizontal}┐`));
 
-  // Title line
-  const title = ` Jonah Fleet Routine: ${pc.bold(options.routine.toUpperCase())} `;
+  // Title Bar line
+  const headerParts = [pc.bold(pc.white(options.routine.toUpperCase()))];
+  if (target) headerParts.push(pc.yellow(target));
+  if (durationStr) headerParts.push(pc.dim(`(${durationStr})`));
+  const headerContent = headerParts.join(' · ');
+  const headerPlain = stripAnsi(headerContent);
+
   lines.push(
     pc.cyan('│') +
-      ` ${pc.bold(pc.white(options.routine.toUpperCase()))}` +
-      (target ? ` · ${pc.yellow(target)}` : '') +
-      (durationStr ? pc.dim(` (${durationStr})`) : '') +
-      ' '.repeat(
-        Math.max(
-          1,
-          width - 4 - options.routine.length - target.length - (durationStr ? durationStr.length + 3 : 0)
-        )
-      ) +
+      ` ${headerContent}` +
+      ' '.repeat(Math.max(1, width - 3 - headerPlain.length)) +
       pc.cyan('│')
   );
 
+  // PR / Issue Title line (with multi-line wrapping so nothing is cropped!)
+  if (title) {
+    const titlePrefix = ' Title: ';
+    const wrappedTitle = wrapText(title, width - 4 - titlePrefix.length);
+    for (let i = 0; i < wrappedTitle.length; i++) {
+      const prefix = i === 0 ? pc.dim(titlePrefix) : ' '.repeat(titlePrefix.length);
+      const text = wrappedTitle[i];
+      const plainLen = titlePrefix.length + stripAnsi(text).length;
+      lines.push(
+        pc.cyan('│') +
+          ` ${prefix}${pc.white(pc.bold(text))}` +
+          ' '.repeat(Math.max(1, width - 3 - plainLen)) +
+          pc.cyan('│')
+      );
+    }
+  }
+
+  // Action / Decision line
   if (decision) {
     let decisionBadge = pc.green(`✔ ${decision}`);
     if (/bounce|draft|reject|fail/i.test(decision)) {
@@ -322,17 +477,18 @@ export function renderSummaryCard(options: SummaryCardOptions): string {
     } else if (/escalat/i.test(decision)) {
       decisionBadge = pc.red(`🚨 ${decision}`);
     }
+    const decisionPlain = ` Action: ${decision}`;
     lines.push(
       pc.cyan('│') +
         ` Action: ${decisionBadge}` +
-        ' '.repeat(Math.max(1, width - 11 - decision.length)) +
+        ' '.repeat(Math.max(1, width - 3 - decisionPlain.length)) +
         pc.cyan('│')
     );
   }
 
   lines.push(pc.cyan(`├${horizontal}┤`));
 
-  // If we have rawSummary markdown, format its core lines cleanly
+  // Format body content (Summary or Fallback Passes)
   if (rawSummary) {
     const summaryLines = rawSummary.split('\n');
 
@@ -342,7 +498,7 @@ export function renderSummaryCard(options: SummaryCardOptions): string {
       if (line.startsWith('# ')) continue;
       if (line.startsWith('---')) continue;
       if (line.startsWith('**Selected Target') || line.startsWith('**Final Action') || line.startsWith('**Mode**:')) {
-        continue; // Already in card header
+        continue; // Handled in card header
       }
 
       if (line.startsWith('### ')) {
@@ -360,16 +516,25 @@ export function renderSummaryCard(options: SummaryCardOptions): string {
           .replace(/\*\*([^*]+)\*\*/g, (_, text) => pc.bold(text))
           .replace(/`([^`]+)`/g, (_, code) => pc.yellow(code));
 
-        const plainLen = item
-          .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-          .replace(/\*\*([^*]+)\*\*/g, '$1')
-          .replace(/`([^`]+)`/g, '$1').length;
-        if (plainLen <= width - 6) {
-          lines.push(pc.cyan('│') + `  • ${formatted}` + ' '.repeat(Math.max(1, width - 5 - plainLen)) + pc.cyan('│'));
-        } else {
-          // Truncate cleanly if too long
-          const truncated = formatted.slice(0, width - 10) + '...';
-          lines.push(pc.cyan('│') + `  • ${truncated}` + ' '.repeat(Math.max(1, width - 5 - (width - 7))) + pc.cyan('│'));
+        const wrapped = wrapText(formatted, width - 8);
+        for (let i = 0; i < wrapped.length; i++) {
+          const wLine = wrapped[i];
+          const wPlain = stripAnsi(wLine);
+          if (i === 0) {
+            lines.push(
+              pc.cyan('│') +
+                `  • ${wLine}` +
+                ' '.repeat(Math.max(1, width - 5 - wPlain.length)) +
+                pc.cyan('│')
+            );
+          } else {
+            lines.push(
+              pc.cyan('│') +
+                `    ${wLine}` +
+                ' '.repeat(Math.max(1, width - 5 - wPlain.length)) +
+                pc.cyan('│')
+            );
+          }
         }
       } else if (/^[0-9]+\.\s+/.test(line)) {
         const item = sanitizeWorktreePaths(line.replace(/^[0-9]+\.\s+/, '')).trim();
@@ -378,27 +543,84 @@ export function renderSummaryCard(options: SummaryCardOptions): string {
           .replace(/\*\*([^*]+)\*\*/g, (_, text) => pc.bold(text))
           .replace(/`([^`]+)`/g, (_, code) => pc.yellow(code));
 
-        const plainLen = item
-          .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-          .replace(/\*\*([^*]+)\*\*/g, '$1')
-          .replace(/`([^`]+)`/g, '$1').length;
-        if (plainLen <= width - 6) {
-          lines.push(pc.cyan('│') + `  ✔ ${formatted}` + ' '.repeat(Math.max(1, width - 5 - plainLen)) + pc.cyan('│'));
-        } else {
-          const truncated = formatted.slice(0, width - 10) + '...';
-          lines.push(pc.cyan('│') + `  ✔ ${truncated}` + ' '.repeat(Math.max(1, width - 5 - (width - 7))) + pc.cyan('│'));
+        const wrapped = wrapText(formatted, width - 8);
+        for (let i = 0; i < wrapped.length; i++) {
+          const wLine = wrapped[i];
+          const wPlain = stripAnsi(wLine);
+          if (i === 0) {
+            lines.push(
+              pc.cyan('│') +
+                `  ✔ ${wLine}` +
+                ' '.repeat(Math.max(1, width - 5 - wPlain.length)) +
+                pc.cyan('│')
+            );
+          } else {
+            lines.push(
+              pc.cyan('│') +
+                `    ${wLine}` +
+                ' '.repeat(Math.max(1, width - 5 - wPlain.length)) +
+                pc.cyan('│')
+            );
+          }
         }
       }
     }
   } else if (parsedFromLog && parsedFromLog.passes && parsedFromLog.passes.length > 0) {
-    // Fallback to parsed log passes
     lines.push(pc.cyan('│') + ` ${pc.bold('Verification Passes:')}` + ' '.repeat(Math.max(1, width - 23)) + pc.cyan('│'));
     for (const pass of parsedFromLog.passes.slice(0, 6)) {
       const icon = pass.status === 'pass' ? pc.green('✔') : pc.red('✖');
-      const text = `${pass.name}${pass.detail || ''}`;
-      const plainLen = text.length + 4;
-      const truncated = plainLen > width - 6 ? text.slice(0, width - 10) + '...' : text;
-      lines.push(pc.cyan('│') + `  ${icon} ${truncated}` + ' '.repeat(Math.max(1, width - 5 - truncated.length)) + pc.cyan('│'));
+      let criterionName = pass.name;
+      const colonIdx = criterionName.indexOf(':');
+      if (colonIdx > 10 && colonIdx < 40) {
+        criterionName = criterionName.slice(0, colonIdx);
+      }
+      const passText = `${criterionName}${pass.detail || ''}`;
+      const wrapped = wrapText(passText, width - 8);
+      for (let i = 0; i < wrapped.length; i++) {
+        const wLine = wrapped[i];
+        const wPlain = stripAnsi(wLine);
+        if (i === 0) {
+          lines.push(
+            pc.cyan('│') +
+              `  ${icon} ${wLine}` +
+              ' '.repeat(Math.max(1, width - 5 - wPlain.length)) +
+              pc.cyan('│')
+          );
+        } else {
+          lines.push(
+            pc.cyan('│') +
+              `    ${pc.dim(wLine)}` +
+              ' '.repeat(Math.max(1, width - 5 - wPlain.length)) +
+              pc.cyan('│')
+          );
+        }
+      }
+    }
+
+    if (parsedFromLog.actions && parsedFromLog.actions.length > 0) {
+      lines.push(pc.cyan('│') + ` ${pc.bold('Actions Taken:')}` + ' '.repeat(Math.max(1, width - 16)) + pc.cyan('│'));
+      for (const action of parsedFromLog.actions.slice(0, 4)) {
+        const wrapped = wrapText(action, width - 8);
+        for (let i = 0; i < wrapped.length; i++) {
+          const wLine = wrapped[i];
+          const wPlain = stripAnsi(wLine);
+          if (i === 0) {
+            lines.push(
+              pc.cyan('│') +
+                `  • ${wLine}` +
+                ' '.repeat(Math.max(1, width - 5 - wPlain.length)) +
+                pc.cyan('│')
+            );
+          } else {
+            lines.push(
+              pc.cyan('│') +
+                `    ${wLine}` +
+                ' '.repeat(Math.max(1, width - 5 - wPlain.length)) +
+                pc.cyan('│')
+            );
+          }
+        }
+      }
     }
   }
 

@@ -20,6 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Post-Measurement Product Bridge & Intent vs. Defect Guardrail Architecture in `ORCHESTRATION.md` (#28).
 - Registered `analytics-review` in `schema.json`, `src/lib/presets.ts`, `src/lib/manifest.ts`, and `full` preset bundle (#28).
 
+### Performance
+- GitHub Actions Quota Optimization:
+  - Added zero-open-PR preflight check to `trigger-review-routine.yml` scheduled sweeps to skip Node setup, Antigravity CLI installation, and agent runs when no PRs are pending review, cutting empty sweep runner time from ~4m to ~3s.
+  - Fixed `trigger-autowork-on-bug.yml` issue event trigger condition to strictly require both `bug` and priority labels (`priority/P1` or `priority/P0`), preventing arbitrary label edits from spawning unnecessary runners.
+  - Tightened job and step timeouts across routine trigger workflows (`trigger-review-routine.yml`, `trigger-autowork-on-bug.yml`, `trigger-autowork-on-merge.yml`) to 30m–35m to prevent runaway billing on stuck runners.
+
 ### Changed
 - Upgraded development dependency `@types/node` from `22.20.1` to `^26.4.0` (#41).
 - Upgraded development dependency `typescript` from `5.9.3` to `^7.0.2`, configured `"types": ["node"]` in `tsconfig.json`, and configured `tsc` declaration emit (#40).

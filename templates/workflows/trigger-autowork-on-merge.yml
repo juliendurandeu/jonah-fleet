@@ -15,7 +15,7 @@ jobs:
       github.event.pull_request.base.ref == 'main' &&
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
-    timeout-minutes: 65
+    timeout-minutes: 35
     permissions:
       contents: write
       issues: write
@@ -110,7 +110,7 @@ jobs:
 
       - name: Run Autowork
         if: steps.pick.outputs.skip != 'true'
-        timeout-minutes: 60
+        timeout-minutes: 30
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GOOGLE_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -126,5 +126,5 @@ jobs:
           agy -p "$PROMPT" \
             --model gemini-3.7-flash-high \
             --output-format text \
-            --print-timeout 60m \
+            --print-timeout 30m \
             --dangerously-skip-permissions

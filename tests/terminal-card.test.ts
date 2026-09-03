@@ -122,6 +122,31 @@ The build is completing. Continuing shortly.
       expect(parsed.passes?.[0].status).toBe('pass');
     });
 
+    it('preserves target from metadata and does not overwrite with YES from DoD table', () => {
+      const logWithDoD = `# Run Log
+
+## Metadata
+
+| Field | Value |
+|-------|-------|
+| Routine | \`peer-review\` |
+| Target PR | \`#3783\` |
+| Decision | \`MERGED\` |
+
+## Definition of Done evaluation
+
+| Criterion | Met? | Evidence |
+|-----------|------|----------|
+| Identified target PR: named PR or priority scan | YES | Evaluated open PRs and selected #3783 |
+| If in Scan mode and no eligible PRs exist, logged SUCCESS with "No PRs to review" | NO | Found eligible PRs |
+`;
+
+      const parsed = parseRunLog(logWithDoD);
+      expect(parsed.target).toBe('#3783');
+      expect(parsed.decision).toBe('MERGED');
+      expect(parsed.passes?.some((p) => p.name.includes('If in Scan mode'))).toBe(false);
+    });
+
     it('finds latest log in repo logs directory', () => {
       const logsDir = path.join(tmpRepo, '.github', 'prompts', 'logs', 'peer-review');
       fs.mkdirSync(logsDir, { recursive: true });
@@ -217,6 +242,32 @@ The build is completing. Continuing shortly.
       expect(card).toContain('PR #3783');
       expect(card).toContain('MERGED');
       expect(card).toContain('45s');
+    });
+
+    it('renders PR title and wraps long lines without ellipses cropping', () => {
+      const card = renderSummaryCard({
+        routine: 'peer-review',
+        pr: 3783,
+        title: 'feat(predictions): show instant group creation nudge on group tab for users without groups',
+        durationMs: 503000,
+        output: `
+# Peer Review Execution Summary
+**Selected Target PR**: [PR #3783 (\`feat(predictions): show instant group creation nudge on group tab for users without groups\`)](https://github.com/org/repo/pull/3783)
+**Final Action**: **MERGED**
+
+### Review & Verification Passes
+- Conformance to AGENTS.md and DESIGN_SYSTEM.md: correct invariant adherence for macro terminology.
+- Clean Next.js React Server Component boundaries verified via check-client-boundary script.
+- 171 test files passed (1,609 unit tests) with zero errors.
+`,
+      });
+
+      expect(card).toContain('PR #3783');
+      expect(card).toContain('Title:');
+      expect(card).toContain('feat(predictions): show instant group creation nudge');
+      expect(card).toContain('MERGED');
+      expect(card).toContain('503s');
+      expect(card).not.toContain('...');
     });
   });
 

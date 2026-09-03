@@ -71,6 +71,25 @@
         "weeklyTokenBudget": { "type": "number", "default": 8750000, "description": "Global weekly token ceiling across fleet (~8.75M tokens/week)" }
       },
       "additionalProperties": false
+    },
+    "dualExecution": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean", "default": true, "description": "Enable priority-driven dual local/cloud execution" },
+        "cloudPriorities": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": ["P0", "P1"],
+          "description": "Priorities handled immediately by cloud GitHub Actions"
+        },
+        "cloudCatchupHours": {
+          "type": "number",
+          "default": 48,
+          "description": "Hours before lower-priority items are eligible for cloud catchup"
+        }
+      },
+      "additionalProperties": false,
+      "description": "Configuration for priority-driven dual local/cloud agent execution"
     }
   },
   "required": ["version", "preset", "routines", "skills"],

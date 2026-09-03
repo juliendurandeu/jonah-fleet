@@ -34,7 +34,20 @@ export interface FleetManifest {
     endpoint?: string;
     weeklyTokenBudget?: number;
   };
+  dualExecution?: DualExecutionConfig;
 }
+
+export interface DualExecutionConfig {
+  enabled?: boolean;
+  cloudPriorities?: string[];
+  cloudCatchupHours?: number;
+}
+
+export const DEFAULT_DUAL_EXECUTION_CONFIG: DualExecutionConfig = {
+  enabled: true,
+  cloudPriorities: ['P0', 'P1'],
+  cloudCatchupHours: 48,
+};
 
 export const PRESET_CONFIGS: Record<Exclude<PresetName, 'custom'>, { routines: FleetManifest['routines']; skills: string[] }> = {
   minimal: {

@@ -69,7 +69,10 @@ Check if `$PR_NUMBER` is set:
 ### Steps 1–2: Select a PR (Scan mode only)
 
 1. List all open PRs, excluding drafts, pure log PRs (`.github/prompts/logs/**`), and automated release PRs (`release-please--*` / `chore(main): release*`).
-2. Prioritize:
+2. **Dual Execution Priority Routing**:
+   - If running in **Cloud Actions** (`$GITHUB_ACTIONS` / `$CI`): Scan mode prioritizes PRs labeled `priority/P0` or `priority/P1` (or untagged PRs). Lower-priority PRs (`priority/P2`, `priority/P3`) are eligible for cloud review ONLY if they have remained ready and unreviewed for more than 48 hours (`created_at` older than 48h, acting as a cloud catchup sweep).
+   - If running in **Local Agent** (`$LOCAL_AGENT`): Scan mode reviews any ready PR across all priorities (P0 → P1 → P2 → P3) with no age gating.
+3. Prioritize:
    - **Category A (re-review)**: PRs with prior review comments where author has pushed new fix commits.
    - **Category B (first review / unreviewed)**: Brand new PRs ready for review, or ready PRs whose previous review session failed or timed out.
 

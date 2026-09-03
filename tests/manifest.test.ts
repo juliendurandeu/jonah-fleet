@@ -60,4 +60,16 @@ describe('Manifest generation', () => {
     expect(manifest.schedules.optimizer).toBe('0 12 * * 0');
     expect(manifest.schedules['sync-fleet']).toBe('0 0 * * 1');
   });
+
+  it('supports dualExecution configuration in manifest', () => {
+    const manifest = createDefaultManifest('standard');
+    manifest.dualExecution = {
+      enabled: true,
+      cloudPriorities: ['P0', 'P1'],
+      cloudCatchupHours: 48,
+    };
+    expect(manifest.dualExecution.enabled).toBe(true);
+    expect(manifest.dualExecution.cloudPriorities).toEqual(['P0', 'P1']);
+    expect(manifest.dualExecution.cloudCatchupHours).toBe(48);
+  });
 });

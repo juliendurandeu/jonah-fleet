@@ -31,8 +31,9 @@ describe('Local Agent Daemon Manager', () => {
     const state: DaemonState = {
       pid: process.pid,
       startedAt: new Date().toISOString(),
-      intervalMinutes: 15,
-      routines: ['autowork', 'peer-review'],
+      reviewIntervalMinutes: 3,
+      autoworkIntervalMinutes: 30,
+      routines: ['peer-review', 'autowork'],
       status: 'idle',
     };
 
@@ -41,15 +42,17 @@ describe('Local Agent Daemon Manager', () => {
 
     expect(read).not.toBeNull();
     expect(read?.pid).toBe(process.pid);
-    expect(read?.intervalMinutes).toBe(15);
-    expect(read?.routines).toEqual(['autowork', 'peer-review']);
+    expect(read?.reviewIntervalMinutes).toBe(3);
+    expect(read?.autoworkIntervalMinutes).toBe(30);
+    expect(read?.routines).toEqual(['peer-review', 'autowork']);
   });
 
   it('correctly reports daemon running when PID is alive', () => {
     const state: DaemonState = {
       pid: process.pid,
       startedAt: new Date().toISOString(),
-      intervalMinutes: 30,
+      reviewIntervalMinutes: 3,
+      autoworkIntervalMinutes: 30,
       routines: ['autowork'],
       status: 'idle',
     };
@@ -63,7 +66,8 @@ describe('Local Agent Daemon Manager', () => {
     const state: DaemonState = {
       pid: deadPid,
       startedAt: new Date().toISOString(),
-      intervalMinutes: 30,
+      reviewIntervalMinutes: 3,
+      autoworkIntervalMinutes: 30,
       routines: ['autowork'],
       status: 'idle',
     };
@@ -77,7 +81,8 @@ describe('Local Agent Daemon Manager', () => {
     const state: DaemonState = {
       pid: process.pid,
       startedAt: new Date().toISOString(),
-      intervalMinutes: 30,
+      reviewIntervalMinutes: 3,
+      autoworkIntervalMinutes: 30,
       routines: ['autowork'],
       status: 'idle',
     };
@@ -85,5 +90,12 @@ describe('Local Agent Daemon Manager', () => {
     writeDaemonState(tmpRepo, state);
     clearDaemonState(tmpRepo);
     expect(readDaemonState(tmpRepo)).toBeNull();
+  });
+
+  it('safely handles PR count query on non-git or error directories', async () => {
+    const { countOpenReadyPRs } = await import('../src/lib/daemon.js');
+    const count = await countOpenReadyPRs(tmpRepo);
+    expect(typeof count).toBe('number');
+    expect(count).toBe(0);
   });
 });

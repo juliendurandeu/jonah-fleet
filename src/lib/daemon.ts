@@ -1,23 +1,30 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
+import { spawn, execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { runLocalRoutine } from './runner.js';
-import { cleanupStaleWorktrees, listActiveWorktrees } from './worktree.js';
+import { cleanupStaleWorktrees } from './worktree.js';
 import pc from 'picocolors';
+
+const execFileAsync = promisify(execFile);
 
 export interface DaemonState {
   pid: number;
   startedAt: string;
-  intervalMinutes: number;
+  reviewIntervalMinutes: number;
+  autoworkIntervalMinutes: number;
   routines: string[];
-  lastCheckAt?: string;
+  lastReviewCheckAt?: string;
+  lastAutoworkCheckAt?: string;
   status: 'idle' | 'working' | 'stopped';
   activeRoutine?: string;
   activeWorktree?: string;
 }
 
 export interface DaemonOptions {
-  interval?: number; // minutes
+  interval?: number; // legacy fallback interval (minutes)
+  reviewInterval?: number; // minutes (default: 3)
+  autoworkInterval?: number; // minutes (default: 30)
   routines?: string[];
   model?: string;
   foreground?: boolean;
@@ -69,6 +76,22 @@ export function isDaemonRunning(repoRoot: string): boolean {
 }
 
 /**
+ * Fast pre-flight check to query number of open ready PRs in ~100ms with 0 token cost.
+ */
+export async function countOpenReadyPRs(repoRoot: string): Promise<number> {
+  try {
+    const { stdout } = await execFileAsync(
+      'gh',
+      ['pr', 'list', '--state', 'open', '--draft=false', '--json', 'number', '--jq', 'length'],
+      { cwd: repoRoot }
+    );
+    return parseInt(stdout.trim(), 10) || 0;
+  } catch {
+    return 0;
+  }
+}
+
+/**
  * Starts the daemon in the background by detaching a child process.
  */
 export async function startBackgroundDaemon(repoRoot: string, options: DaemonOptions = {}): Promise<DaemonState> {
@@ -77,8 +100,9 @@ export async function startBackgroundDaemon(repoRoot: string, options: DaemonOpt
     throw new Error(`Daemon is already running with PID ${existing?.pid}`);
   }
 
-  const interval = options.interval || 30;
-  const routines = options.routines || ['autowork', 'peer-review'];
+  const reviewInterval = options.reviewInterval || 3;
+  const autoworkInterval = options.autoworkInterval || options.interval || 30;
+  const routines = options.routines || ['peer-review', 'autowork'];
 
   // Path to cli entrypoint or executable
   const logFilePath = path.join(repoRoot, '.jonah-fleet', 'daemon.log');
@@ -87,7 +111,16 @@ export async function startBackgroundDaemon(repoRoot: string, options: DaemonOpt
 
   // Spawn node with current entrypoint running daemon foreground mode
   const cliPath = process.argv[1];
-  const args = ['daemon', '--foreground', '--interval', String(interval), '--routines', routines.join(',')];
+  const args = [
+    'daemon',
+    '--foreground',
+    '--review-interval',
+    String(reviewInterval),
+    '--autowork-interval',
+    String(autoworkInterval),
+    '--routines',
+    routines.join(','),
+  ];
   if (options.model) {
     args.push('--model', options.model);
   }
@@ -104,7 +137,8 @@ export async function startBackgroundDaemon(repoRoot: string, options: DaemonOpt
   const state: DaemonState = {
     pid: child.pid!,
     startedAt: new Date().toISOString(),
-    intervalMinutes: interval,
+    reviewIntervalMinutes: reviewInterval,
+    autoworkIntervalMinutes: autoworkInterval,
     routines,
     status: 'idle',
   };
@@ -132,29 +166,31 @@ export async function stopDaemon(repoRoot: string): Promise<boolean> {
 }
 
 /**
- * Runs the polling daemon loop in the current process.
+ * Runs the multi-cadence polling daemon loop in the current process.
  */
 export async function runDaemonLoop(repoRoot: string, options: DaemonOptions = {}): Promise<void> {
-  const intervalMinutes = options.interval || 30;
-  const intervalMs = intervalMinutes * 60 * 1000;
-  const routines = options.routines || ['autowork', 'peer-review'];
+  const reviewInterval = options.reviewInterval || 3;
+  const autoworkInterval = options.autoworkInterval || options.interval || 30;
+  const routines = options.routines || ['peer-review', 'autowork'];
 
   const state: DaemonState = {
     pid: process.pid,
     startedAt: new Date().toISOString(),
-    intervalMinutes,
+    reviewIntervalMinutes: reviewInterval,
+    autoworkIntervalMinutes: autoworkInterval,
     routines,
     status: 'idle',
   };
   writeDaemonState(repoRoot, state);
 
-  console.log(pc.cyan(`\n🤖 Jonah Fleet Local Agent Daemon Started`));
+  console.log(pc.cyan(`\n🤖 Jonah Fleet Multi-Cadence Local Agent Daemon Started`));
   console.log(pc.dim(`   PID: ${process.pid}`));
-  console.log(pc.dim(`   Poll Interval: Every ${intervalMinutes} minutes`));
-  console.log(pc.dim(`   Routines: ${routines.join(', ')}`));
+  console.log(pc.dim(`   Peer Review Watchdog: Every ${reviewInterval} minutes (with zero-cost PR preflight)`));
+  console.log(pc.dim(`   Autowork Backlog Scan: Every ${autoworkInterval} minutes`));
   console.log(pc.dim(`   Working Directory: ${repoRoot}\n`));
 
   let isStopping = false;
+  let isWorking = false;
 
   const handleStop = async () => {
     if (isStopping) return;
@@ -168,55 +204,98 @@ export async function runDaemonLoop(repoRoot: string, options: DaemonOptions = {
   process.once('SIGINT', handleStop);
   process.once('SIGTERM', handleStop);
 
-  const runTick = async () => {
-    if (isStopping) return;
-    const now = new Date().toISOString();
-    state.lastCheckAt = now;
+  const runReviewCheck = async () => {
+    if (isStopping || isWorking) return;
+    state.lastReviewCheckAt = new Date().toISOString();
     writeDaemonState(repoRoot, state);
 
-    console.log(pc.dim(`[${new Date().toLocaleTimeString()}] Running routine polling sweep...`));
-
-    // Cleanup stale worktrees before new work
-    await cleanupStaleWorktrees(repoRoot);
-
-    for (const routine of routines) {
-      if (isStopping) break;
-      try {
-        state.status = 'working';
-        state.activeRoutine = routine;
-        writeDaemonState(repoRoot, state);
-
-        console.log(pc.cyan(`\n▶ Starting local scan for ${routine}...`));
-        const result = await runLocalRoutine({
-          targetDir: repoRoot,
-          routine,
-          model: options.model,
-          noWorktree: false,
-        });
-
-        if (result.success) {
-          console.log(pc.green(`✓ Local routine '${routine}' finished successfully.`));
-        } else {
-          console.warn(pc.yellow(`⚠️  Local routine '${routine}' completed with code ${result.exitCode}.`));
-        }
-      } catch (err: any) {
-        console.error(pc.red(`✗ Error running routine '${routine}': ${err.message}`));
-      } finally {
-        state.status = 'idle';
-        state.activeRoutine = undefined;
-        state.activeWorktree = undefined;
-        writeDaemonState(repoRoot, state);
-      }
+    const openPRCount = await countOpenReadyPRs(repoRoot);
+    if (openPRCount === 0) {
+      console.log(pc.dim(`[${new Date().toLocaleTimeString()}] Peer Review Watchdog: 0 ready PRs found (0 tokens used).`));
+      return;
     }
 
-    console.log(pc.dim(`[${new Date().toLocaleTimeString()}] Sweep completed. Next run in ${intervalMinutes}m.`));
+    try {
+      isWorking = true;
+      state.status = 'working';
+      state.activeRoutine = 'peer-review';
+      writeDaemonState(repoRoot, state);
+
+      console.log(pc.cyan(`\n[${new Date().toLocaleTimeString()}] 🔍 Peer Review Watchdog: Found ${openPRCount} ready PR(s). Starting review session...`));
+      await cleanupStaleWorktrees(repoRoot);
+
+      const result = await runLocalRoutine({
+        targetDir: repoRoot,
+        routine: 'peer-review',
+        model: options.model,
+        noWorktree: false,
+      });
+
+      if (result.success) {
+        console.log(pc.green(`✓ Local peer-review completed successfully.`));
+      } else {
+        console.warn(pc.yellow(`⚠️  Local peer-review completed with code ${result.exitCode}.`));
+      }
+    } catch (err: any) {
+      console.error(pc.red(`✗ Error in peer-review: ${err.message}`));
+    } finally {
+      isWorking = false;
+      state.status = 'idle';
+      state.activeRoutine = undefined;
+      writeDaemonState(repoRoot, state);
+    }
   };
 
-  // Run first sweep immediately
-  await runTick();
+  const runAutoworkCheck = async () => {
+    if (isStopping || isWorking || !routines.includes('autowork')) return;
+    state.lastAutoworkCheckAt = new Date().toISOString();
+    writeDaemonState(repoRoot, state);
 
-  // Schedule recurring sweeps
-  const intervalId = setInterval(runTick, intervalMs);
+    try {
+      isWorking = true;
+      state.status = 'working';
+      state.activeRoutine = 'autowork';
+      writeDaemonState(repoRoot, state);
+
+      console.log(pc.cyan(`\n[${new Date().toLocaleTimeString()}] 🚀 Autowork Backlog Scan: Starting session...`));
+      await cleanupStaleWorktrees(repoRoot);
+
+      const result = await runLocalRoutine({
+        targetDir: repoRoot,
+        routine: 'autowork',
+        model: options.model,
+        noWorktree: false,
+      });
+
+      if (result.success) {
+        console.log(pc.green(`✓ Local autowork completed successfully.`));
+      } else {
+        console.warn(pc.yellow(`⚠️  Local autowork completed with code ${result.exitCode}.`));
+      }
+    } catch (err: any) {
+      console.error(pc.red(`✗ Error in autowork: ${err.message}`));
+    } finally {
+      isWorking = false;
+      state.status = 'idle';
+      state.activeRoutine = undefined;
+      writeDaemonState(repoRoot, state);
+    }
+  };
+
+  // Run initial checks on start
+  if (routines.includes('peer-review')) {
+    await runReviewCheck();
+  }
+  if (routines.includes('autowork')) {
+    await runAutoworkCheck();
+  }
+
+  // Set up decoupled timers
+  const reviewIntervalMs = reviewInterval * 60 * 1000;
+  const autoworkIntervalMs = autoworkInterval * 60 * 1000;
+
+  const reviewTimer = setInterval(runReviewCheck, reviewIntervalMs);
+  const autoworkTimer = setInterval(runAutoworkCheck, autoworkIntervalMs);
 
   // Keep process alive
   await new Promise<void>(() => {});

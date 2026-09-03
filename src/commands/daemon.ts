@@ -11,6 +11,8 @@ import { listActiveWorktrees } from '../lib/worktree.js';
 
 export interface DaemonCommandOptions {
   interval?: string;
+  reviewInterval?: string;
+  autoworkInterval?: string;
   routines?: string;
   model?: string;
   foreground?: boolean;
@@ -22,6 +24,12 @@ export async function runDaemonCommand(action?: string, options: DaemonCommandOp
 
   const daemonOpts: DaemonOptions = {
     interval: options.interval ? parseInt(options.interval, 10) : undefined,
+    reviewInterval: options.reviewInterval ? parseInt(options.reviewInterval, 10) : undefined,
+    autoworkInterval: options.autoworkInterval
+      ? parseInt(options.autoworkInterval, 10)
+      : options.interval
+        ? parseInt(options.interval, 10)
+        : undefined,
     routines: options.routines ? options.routines.split(',').map((r) => r.trim()) : undefined,
     model: options.model,
     foreground: options.foreground,
@@ -37,7 +45,8 @@ export async function runDaemonCommand(action?: string, options: DaemonCommandOp
       const state = await startBackgroundDaemon(cwd, daemonOpts);
       console.log(pc.green(`\n✓ Background agent daemon started successfully.`));
       console.log(pc.dim(`   PID: ${state.pid}`));
-      console.log(pc.dim(`   Poll Interval: Every ${state.intervalMinutes} minutes`));
+      console.log(pc.dim(`   Peer Review Watchdog: Every ${state.reviewIntervalMinutes} minutes (zero-cost PR preflight)`));
+      console.log(pc.dim(`   Autowork Backlog Scan: Every ${state.autoworkIntervalMinutes} minutes`));
       console.log(pc.dim(`   Routines: ${state.routines.join(', ')}`));
       console.log(pc.dim(`   Log file: .jonah-fleet/daemon.log`));
       console.log(pc.dim(`   Run 'jonah-fleet daemon status' or 'jonah-fleet daemon stop' to manage.`));
@@ -77,17 +86,21 @@ export async function runDaemonCommand(action?: string, options: DaemonCommandOp
 
   console.log(pc.cyan(`\n🤖 Jonah Fleet Local Daemon Status\n`));
   if (running && state) {
-    console.log(`  Status:         ${pc.green(pc.bold('RUNNING'))}`);
-    console.log(`  PID:            ${state.pid}`);
-    console.log(`  Started:        ${new Date(state.startedAt).toLocaleString()}`);
-    console.log(`  Interval:       Every ${state.intervalMinutes} minutes`);
-    console.log(`  Routines:       ${state.routines.join(', ')}`);
-    console.log(`  Current State:  ${state.status === 'working' ? pc.yellow('WORKING on ' + state.activeRoutine) : pc.green('IDLE')}`);
-    if (state.lastCheckAt) {
-      console.log(`  Last Check:     ${new Date(state.lastCheckAt).toLocaleTimeString()}`);
+    console.log(`  Status:               ${pc.green(pc.bold('RUNNING'))}`);
+    console.log(`  PID:                  ${state.pid}`);
+    console.log(`  Started:              ${new Date(state.startedAt).toLocaleString()}`);
+    console.log(`  Peer Review Cadence:  Every ${state.reviewIntervalMinutes} minutes (0-token fast preflight)`);
+    console.log(`  Autowork Cadence:     Every ${state.autoworkIntervalMinutes} minutes`);
+    console.log(`  Routines:             ${state.routines.join(', ')}`);
+    console.log(`  Current State:        ${state.status === 'working' ? pc.yellow('WORKING on ' + state.activeRoutine) : pc.green('IDLE')}`);
+    if (state.lastReviewCheckAt) {
+      console.log(`  Last Review Check:    ${new Date(state.lastReviewCheckAt).toLocaleTimeString()}`);
+    }
+    if (state.lastAutoworkCheckAt) {
+      console.log(`  Last Autowork Check:  ${new Date(state.lastAutoworkCheckAt).toLocaleTimeString()}`);
     }
   } else {
-    console.log(`  Status:         ${pc.gray('STOPPED')}`);
+    console.log(`  Status:               ${pc.gray('STOPPED')}`);
     console.log(pc.dim(`  Run 'jonah-fleet daemon start' to start the local worker daemon.`));
   }
 

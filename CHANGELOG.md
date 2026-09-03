@@ -5,12 +5,24 @@ All notable changes to `jonah-fleet` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.2] - 2026-09-03
+
+### Changed
+- Strict Allowlist for Cloud Review Triggers:
+  - Updated `trigger-review-routine.yml` to strictly require `priority/P0` or `priority/P1` labels to fire immediate cloud reviews on `pull_request` events.
+  - Untagged PRs and lower-priority PRs (P2/P3) skip immediate cloud review, routing review execution exclusively to local peer-review daemons (with 48h scheduled cloud catchup fallback).
+
 ## [1.4.1] - 2026-09-03
 
 ### Added
 - Decoupled Multi-Cadence Daemon & Zero-Cost PR Preflight:
   - Added independent scheduling in `jonah-fleet daemon` via `--review-interval` (default: 3m) and `--autowork-interval` (default: 30m).
   - Added ultra-fast (~100ms) local PR preflight check (`countOpenReadyPRs`) in `src/lib/daemon.ts` that queries `gh pr list` and skips agent invocations with 0 token spend when 0 ready PRs are open.
+- User-Friendly Terminal Cards & Daemon Ticker:
+  - Replaced noisy raw markdown streaming in `jonah-fleet daemon --foreground` and `jonah-fleet run` with a dynamic single-line status spinner showing target and active phase heuristics.
+  - Added real-time token stream redirection to `.jonah-fleet/daemon.log` with `-v, --verbose` escape hatch for debugging.
+  - Added formatted Unicode summary and error cards with ephemeral worktree path sanitization and disk log fallbacks (`src/lib/terminal-card.ts`).
+  - Added in-place countdown ticker (`\r`) during daemon watchdog idle states to avoid cluttering terminal scrollback.
 
 ## [1.4.0] - 2026-09-03
 

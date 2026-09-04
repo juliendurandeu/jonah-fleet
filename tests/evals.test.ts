@@ -7,7 +7,13 @@ import {
   createSyntheticOptimizerDataset,
   analyzeOptimizerSignals,
   simulateDownstreamSyncWorkflow,
+  evaluateIssueAmbiguity,
+  runAmbiguityBenchmark,
+  extractBenchmarkCaseFromLog,
+  feedOptimizerCaseToBenchmark,
+  getBaselineAmbiguityBenchmarkDataset,
   type SyntheticLogOptions,
+  type BenchmarkIssue,
 } from '../src/lib/evals.js';
 import { FLEET_VERSION } from '../src/lib/presets.js';
 
@@ -191,6 +197,144 @@ describe('Bi-directional Optimization Bridge & Evals Suite', () => {
 
       expect(result.initialDrift.hasDrift).toBe(false);
       expect(result.prPayload.shouldCreatePR).toBe(false);
+    });
+  });
+
+  describe('Ambiguity Benchmark Engine & Dynamic Optimizer Case Feeding', () => {
+    it('evaluates ambiguous issues as ASK_QUESTIONS and generates clarifying questions', () => {
+      const ambiguousIssue: BenchmarkIssue = {
+        id: 'issue-ambiguous-custom',
+        title: 'Optimize the dashboard loading time',
+        body: 'The dashboard feels slow. Please make it faster and improve user experience.',
+        expectedAction: 'ASK_QUESTIONS',
+        rationale: 'No metrics, no target latency, no specific endpoints.',
+      };
+
+      const result = evaluateIssueAmbiguity(ambiguousIssue);
+      expect(result.decision).toBe('ASK_QUESTIONS');
+      expect(result.isCorrect).toBe(true);
+      expect(result.missingCriteria.length).toBeGreaterThan(0);
+      expect(result.generatedQuestions.length).toBeGreaterThanOrEqual(1);
+      expect(result.generatedQuestions.length).toBeLessThanOrEqual(2);
+      expect(result.generatedQuestions[0]).toMatch(/baseline latency|current response time/i);
+    });
+
+    it('evaluates well-specified issues as PROCEED_TO_IMPLEMENT', () => {
+      const specifiedIssue: BenchmarkIssue = {
+        id: 'issue-specified-custom',
+        title: 'Fix null pointer in user profile header avatar rendering',
+        body: `When avatarUrl is null, UserAvatar throws TypeError.
+        
+## Acceptance Criteria
+- [ ] Fall back to initials avatar when user.avatarUrl is null or undefined
+- [ ] Update \`src/components/UserAvatar.tsx\` lines 42-55
+- [ ] Add unit test in \`tests/components/UserAvatar.test.tsx\`
+
+Verification: \`npm test tests/components/UserAvatar.test.tsx\`
+`,
+        expectedAction: 'PROCEED_TO_IMPLEMENT',
+        rationale: 'Contains clear bug reproduction, file seam, tasks, and test verification command.',
+      };
+
+      const result = evaluateIssueAmbiguity(specifiedIssue);
+      expect(result.decision).toBe('PROCEED_TO_IMPLEMENT');
+      expect(result.isCorrect).toBe(true);
+      expect(result.confidence).toBeGreaterThanOrEqual(0.7);
+    });
+
+    it('evaluates baseline benchmark dataset with 100% accuracy and 0% false compliance rate', () => {
+      const baselineDataset = getBaselineAmbiguityBenchmarkDataset();
+      expect(baselineDataset.length).toBe(10);
+
+      const summary = runAmbiguityBenchmark(baselineDataset);
+      expect(summary.totalEvaluated).toBe(10);
+      expect(summary.passedCount).toBe(10);
+      expect(summary.failedCount).toBe(0);
+      expect(summary.accuracy).toBe(1.0);
+      expect(summary.falseComplianceCount).toBe(0);
+      expect(summary.falseComplianceRate).toBe(0);
+      expect(summary.falseObstructionCount).toBe(0);
+      expect(summary.falseObstructionRate).toBe(0);
+    });
+
+    it('extracts benchmark issue fixture from failure run log with ambiguity gate trigger', () => {
+      const rawLog = `# Run Log
+| Routine | \`autowork\` |
+| Timestamp | \`2026-09-04T12:00:00Z\` |
+| Result | \`FAILURE\` |
+| Error reason | Agent guessed user permissions without schema confirmation |
+
+## Root cause & failure analysis
+Category: \`ambiguous_spec\`
+Details: Underspecified role-based access control matrix in issue description. Ambiguity gate triggered.
+`;
+
+      const extracted = extractBenchmarkCaseFromLog(rawLog, {
+        title: 'Add role permissions for org members',
+      });
+
+      expect(extracted).not.toBeNull();
+      expect(extracted?.expectedAction).toBe('ASK_QUESTIONS');
+      expect(extracted?.origin).toBe('optimizer_extracted');
+      expect(extracted?.title).toBe('Add role permissions for org members');
+      expect(extracted?.labels).toContain('needs-info');
+    });
+
+    it('extracts benchmark issue fixture from runs with high review ping-pong bounces (>=3 rounds)', () => {
+      const rawLog = `# Run Log
+| Routine | \`autowork\` |
+| Timestamp | \`2026-09-04T13:00:00Z\` |
+| Result | \`SUCCESS\` |
+| Review rounds | 4 |
+
+Review bounced 4 times due to divergent expectations on cache eviction timing.
+`;
+
+      const extracted = extractBenchmarkCaseFromLog(rawLog);
+      expect(extracted).not.toBeNull();
+      expect(extracted?.expectedAction).toBe('ASK_QUESTIONS');
+      expect(extracted?.origin).toBe('optimizer_extracted');
+    });
+
+    it('returns null when log represents a standard successful run with no ambiguity signals', () => {
+      const rawLog = `# Run Log
+| Routine | \`autowork\` |
+| Timestamp | \`2026-09-04T14:00:00Z\` |
+| Result | \`SUCCESS\` |
+| Review rounds | 1 |
+`;
+
+      const extracted = extractBenchmarkCaseFromLog(rawLog);
+      expect(extracted).toBeNull();
+    });
+
+    it('dynamically feeds optimizer-extracted cases into benchmark dataset without duplicates', () => {
+      const baseline = getBaselineAmbiguityBenchmarkDataset();
+      const initialCount = baseline.length;
+
+      const newCase: BenchmarkIssue = {
+        id: 'eval-extracted-cache-eviction',
+        title: 'Add Redis cache eviction for expired sessions',
+        body: 'Evict expired sessions from Redis cache.',
+        expectedAction: 'ASK_QUESTIONS',
+        rationale: 'Extracted by optimizer following 4 review bounces on eviction window.',
+        origin: 'optimizer_extracted',
+      };
+
+      const updated = feedOptimizerCaseToBenchmark(baseline, newCase);
+      expect(updated.length).toBe(initialCount + 1);
+      expect(updated[updated.length - 1].id).toBe('eval-extracted-cache-eviction');
+
+      // Feeding same id again updates existing entry rather than duplicating
+      const modifiedCase = { ...newCase, rationale: 'Updated rationale' };
+      const reUpdated = feedOptimizerCaseToBenchmark(updated, modifiedCase);
+      expect(reUpdated.length).toBe(initialCount + 1);
+      expect(reUpdated.find((i) => i.id === newCase.id)?.rationale).toBe('Updated rationale');
+
+      // Benchmark executes cleanly on augmented dataset
+      const summary = runAmbiguityBenchmark(reUpdated);
+      expect(summary.totalEvaluated).toBe(initialCount + 1);
+      expect(summary.accuracy).toBe(1.0);
     });
   });
 });

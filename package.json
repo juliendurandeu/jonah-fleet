@@ -14,7 +14,7 @@
     "lint": "eslint src tests",
     "type-check": "tsc --noEmit",
     "test": "vitest run --exclude '**/node_modules/**' --exclude '**/.jonah-fleet/**'",
-    "test:evals": "vitest run tests/evals.test.ts tests/contribute.test.ts tests/sync-workflow.test.ts",
+    "test:evals": "vitest run tests/evals.test.ts tests/contribute.test.ts tests/sync-workflow.test.ts --exclude '**/.jonah-fleet/**'",
     "test:watch": "vitest",
     "format": "prettier --write \"**/*.{ts,json,md,yml}\""
   },

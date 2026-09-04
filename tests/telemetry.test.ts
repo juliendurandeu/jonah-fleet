@@ -332,5 +332,47 @@ describe('Fleet Telemetry Hub', () => {
       expect(parsed.totalRuns).toBe(1);
       expect(parsed.budget.status).toBe('HEALTHY');
     });
+
+    it('parses and displays Inquisitive Stance & Ambiguity Gate metrics', () => {
+      const sampleAmbiguityLog = `
+# Run Log
+## Metadata
+| Field | Value |
+|-------|-------|
+| Routine | \`autowork\` |
+| Timestamp | \`2026-09-04T12:00:00Z\` |
+| Result | \`SUCCESS\` |
+| Error reason | N/A |
+| Input tokens | 12000 |
+| Output tokens | 800 |
+| Estimated cost | $0.03 |
+| Iterations used | 4 / 65 |
+
+## Execution trace
+Step 12: Ambiguity & Missing Acceptance Criteria Gate triggered on issue #105.
+Clarifications Needed Before Implementation:
+1. What is the target latency threshold?
+2. Which module should be updated?
+
+Releasing claim and applying needs-info label.
+`;
+
+      const parsed = parseLogToTelemetry(sampleAmbiguityLog);
+      expect(parsed?.ambiguityGateTriggered).toBe(true);
+      expect(parsed?.needsInfoApplied).toBe(true);
+      expect(parsed?.questionsAskedCount).toBe(2);
+
+      const aggregated = aggregateFleetTelemetry([parsed!]);
+      expect(aggregated.ambiguity.totalAmbiguityGatesTriggered).toBe(1);
+      expect(aggregated.ambiguity.totalQuestionsAsked).toBe(2);
+      expect(aggregated.ambiguity.needsInfoAppliedCount).toBe(1);
+      expect(aggregated.ambiguity.estimatedTokensSaved).toBe(50_000);
+
+      const text = stripAnsi(renderTelemetryDashboard(aggregated));
+      expect(text).toContain('Inquisitive Stance & Ambiguity Gate Signals');
+      expect(text).toContain('Ambiguity Gate Triggers:    1 runs stopped to request clarification');
+      expect(text).toContain('Clarifying Questions Posed: 2 targeted questions');
+      expect(text).toContain('Est. Wasted Tokens Averted: ~50.0k tokens');
+    });
   });
 });

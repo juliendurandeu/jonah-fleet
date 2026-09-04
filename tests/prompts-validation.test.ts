@@ -63,12 +63,15 @@ describe('Prompt Validation & Invariants', () => {
     expect(content).toContain('Review Loop Burn');
     expect(content).toMatch(/Review Loop Burn.*(?:≥|>=)\s*3/s);
     expect(content).toContain('Feedback Loop Stagnation');
+    expect(content).toContain('Passive Order-Taking Anomaly ("Yes-Man Blindspot")');
+    expect(content).toContain('Speculative Runaway Waste');
 
     // Automated preventative actions
     expect(content).toMatch(/pruning redundant instructions|instruction pruning/i);
     expect(content).toMatch(/early exit|candidate skip/i);
     expect(content).toMatch(/iteration ceiling|pre-ready self-audit/i);
     expect(content).toMatch(/loop discovery mechanical audits|deterministic per-issue matching/i);
+    expect(content).toContain('Ambiguity Gate & Benchmark Eval Feeding');
   });
 
   it('validates ORCHESTRATION.md documents the token anomaly triage and remediation workflow', () => {
@@ -81,6 +84,8 @@ describe('Prompt Validation & Invariants', () => {
     expect(content).toContain('Iteration Ceiling Exhaustion');
     expect(content).toContain('Review Loop Burn');
     expect(content).toContain('Feedback Loop Stagnation');
+    expect(content).toContain('Passive Order-Taking Anomaly ("Yes-Man Blindspot")');
+    expect(content).toContain('Speculative Runaway Waste');
   });
 
   it('validates peer-review.md and ORCHESTRATION.md define the Autonomous Issue Synthesis protocol', () => {

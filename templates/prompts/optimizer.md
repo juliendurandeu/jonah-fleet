@@ -59,6 +59,8 @@ If any criterion cannot be met, stop immediately and log FAILURE with the reason
    - **Iteration Ceiling Exhaustion**: >20% of runs in a routine terminate at the `token_limit` / max iteration cap.
    - **Review Loop Burn**: Pull requests experiencing >= 3 bounce rounds between autowork and peer-review over unresolved or recurring findings.
    - **Feedback Loop Stagnation**: A downstream processing routine (e.g. impact measurement, verification, or triage) records 0 intake (`filed: 0` or 0 new items processed) across $\ge 2$ consecutive runs while upstream PRs merge or roadmap/feature issues close in the same window. Flags that discovery sweeps have stalled or become overly coarse.
+   - **Passive Order-Taking Anomaly ("Yes-Man Blindspot")**: The Ambiguity Gate trigger rate across intake runs in `autowork` or `triage` is <5% despite elevated PR review bounces ($\ge 2$) or high iteration usage ($\ge 35$), indicating agents are silently guessing requirements and building flawed implementations rather than interrogating underspecified issues.
+   - **Speculative Runaway Waste**: An agent run consumed >50k tokens on an underspecified issue with 0 clarifying questions asked, and subsequently failed, bounced, or required post-merge rework.
 6. **Analyze resolved bugs & review comments**: Examine closed bug issues, merged bug-fix PRs, and review feedback for missing checks in authoring (`autowork.md`) or review (`peer-review.md`).
 
 ### 2. Formulate preventative improvements
@@ -69,6 +71,7 @@ Translate findings into concrete preventative improvements and remediation trigg
 - **Iteration Ceiling & Self-Audit Tuning**: For Iteration Ceiling Exhaustion, adjust max iteration bounds or tighten pre-ready self-audits in `autowork.md` to catch defects before review cycles start.
 - **Ping-Pong Convergence**: For Review Loop Burn, tighten reviewer trust & noise filtering, enforce clean-merge gates, and apply ping-pong caps to prevent endless bounce cycles.
 - **Loop Discovery Mechanical Audits**: For Feedback Loop Stagnation, tighten discovery sweeps by mandating deterministic per-issue matching tables and itemized reconciliation against upstream closed issues/PRs rather than allowing un-itemized generic summary assertions.
+- **Ambiguity Gate & Benchmark Eval Feeding**: For Passive Order-Taking and Speculative Runaway Waste, tighten Step 12 criteria in `autowork.md` and `triage.md` to mandate clarifying questions, and automatically extract the problem issue into a `BenchmarkIssue` test case to feed the automated ambiguity benchmark eval suite (`tests/evals.test.ts`), ensuring future agent prompts are continuously tested against real failure cases.
 - **Verification & Invariant Tests**: Add automated test cases in `tests/` verifying prompt invariant preservation and schema conformity.
 
 ### 3. Open Fix PR (Local or Upstream Bridge)

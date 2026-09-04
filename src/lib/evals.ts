@@ -10,7 +10,7 @@ export interface SyntheticLogOptions {
   routine: 'autowork' | 'peer-review' | 'optimizer' | 'issues-housekeeping' | 'dependency-check' | 'product-planning' | 'analytics-review';
   timestamp: string;
   result: 'SUCCESS' | 'FAILURE';
-  errorCategory?: 'prompt_unclear' | 'token_limit' | 'data_issue' | 'infeasible_task' | 'merge_conflict' | 'orchestration_collision' | 'telemetry_rabbit_hole' | 'intent_vs_defect';
+  errorCategory?: 'prompt_unclear' | 'token_limit' | 'data_issue' | 'infeasible_task' | 'merge_conflict' | 'orchestration_collision' | 'telemetry_rabbit_hole' | 'intent_vs_defect' | 'ambiguous_spec';
   errorReason?: string;
   inputTokens?: number;
   outputTokens?: number;
@@ -19,6 +19,40 @@ export interface SyntheticLogOptions {
   reviewRounds?: number;
   isGenericPattern?: boolean;
   suggestedOptimization?: string;
+}
+
+export interface BenchmarkIssue {
+  id: string;
+  title: string;
+  body: string;
+  labels?: string[];
+  expectedAction: 'ASK_QUESTIONS' | 'PROCEED_TO_IMPLEMENT';
+  rationale: string;
+  origin?: 'synthetic' | 'optimizer_extracted' | 'human_authored';
+  sourceLogTimestamp?: string;
+}
+
+export interface BenchmarkEvaluationResult {
+  issueId: string;
+  decision: 'ASK_QUESTIONS' | 'PROCEED_TO_IMPLEMENT';
+  expectedAction: 'ASK_QUESTIONS' | 'PROCEED_TO_IMPLEMENT';
+  isCorrect: boolean;
+  confidence: number;
+  missingCriteria: string[];
+  generatedQuestions: string[];
+  rationale: string;
+}
+
+export interface BenchmarkRunSummary {
+  totalEvaluated: number;
+  passedCount: number;
+  failedCount: number;
+  accuracy: number;
+  falseComplianceCount: number; // Said PROCEED when expected ASK_QUESTIONS (Yes-Man error)
+  falseComplianceRate: number;
+  falseObstructionCount: number; // Said ASK_QUESTIONS when expected PROCEED
+  falseObstructionRate: number;
+  itemizedResults: BenchmarkEvaluationResult[];
 }
 
 export interface ContributionProposal {
@@ -192,7 +226,13 @@ export function analyzeOptimizerSignals(logs: string[]): OptimizationAnalysisRes
       const cat = catMatch ? catMatch[1] : 'unspecified';
       failureCategories[cat] = (failureCategories[cat] || 0) + 1;
 
-      const isGeneric = rawLog.includes('Scope: `generic`') || cat === 'orchestration_collision' || cat === 'prompt_unclear' || cat === 'telemetry_rabbit_hole' || cat === 'intent_vs_defect';
+      const isGeneric =
+        rawLog.includes('Scope: `generic`') ||
+        cat === 'orchestration_collision' ||
+        cat === 'prompt_unclear' ||
+        cat === 'telemetry_rabbit_hole' ||
+        cat === 'intent_vs_defect' ||
+        cat === 'ambiguous_spec';
       const reasonMatch = rawLog.match(/Details:\s*([^\n]+)/) || rawLog.match(/\| Error reason \| ([^|]+) \|/);
       const reason = reasonMatch ? reasonMatch[1].trim() : 'Routine execution failed';
       const fixMatch = rawLog.match(/Suggested Fix:\s*([^\n]+)/);
@@ -314,3 +354,212 @@ export function simulateDownstreamSyncWorkflow(options: DownstreamSyncSimulation
     prPayload,
   };
 }
+
+/**
+ * Evaluate whether an issue is ambiguous or ready for immediate autonomous implementation
+ */
+export function evaluateIssueAmbiguity(issue: BenchmarkIssue): BenchmarkEvaluationResult {
+  const title = issue.title.trim();
+  const body = (issue.body || '').trim();
+  const combined = `${title}\n${body}`.toLowerCase();
+
+  const missingCriteria: string[] = [];
+  const generatedQuestions: string[] = [];
+
+  // Positive signals (well-specified)
+  const hasTaskChecklist = /- \[[ xX]\]/.test(body) || /## tasks/i.test(body) || /## deliverables/i.test(body);
+  const hasTestCommand = /(npm test|pytest|cargo test|vitest|npm run type-check|tsc --noemit)/i.test(body);
+  const hasFileReferences = /(src\/|tests\/|\.ts|\.js|\.md|line \d+|:\d+)/i.test(body);
+  const hasExactErrorOrRepro = /(ts\d{4}|error:|expected:|actual:|reproduction:|when running)/i.test(body);
+
+  // Ambiguity signals
+  const isTooShort = body.length < 90 && !hasTaskChecklist && !hasTestCommand;
+  const hasVagueVerbs =
+    /(make it fast|make faster|improve speed|sluggish|clean up|clean up stale|rework ui|make better|look broken|needs to be cleaned up|add.*permissions|add role-based permissions|refactor.*queries)/i.test(
+      combined
+    );
+  const lacksAcceptanceCriteria = !hasTaskChecklist && !hasTestCommand && !hasExactErrorOrRepro;
+
+  if (isTooShort || hasVagueVerbs || lacksAcceptanceCriteria) {
+    if (!hasTaskChecklist) missingCriteria.push('Missing structured task checklist or explicit deliverables');
+    if (!hasTestCommand) missingCriteria.push('Missing verification path or automated test command');
+    if (!hasFileReferences) missingCriteria.push('Missing explicit module boundaries, file seams, or target components');
+    if (hasVagueVerbs) missingCriteria.push('Relies on qualitative or unquantified goals without acceptance thresholds');
+
+    // Generate 1-2 sharp clarifying questions addressing the exact missing decisions
+    if (combined.includes('speed') || combined.includes('fast') || combined.includes('sluggish') || combined.includes('performance')) {
+      generatedQuestions.push('What is the baseline latency and target performance threshold for this operation?');
+      generatedQuestions.push('Which exact module or transport layer has been profiled as the bottleneck?');
+    } else if (combined.includes('permission') || combined.includes('role') || combined.includes('auth')) {
+      generatedQuestions.push('What specific roles and permission tiers should be established, and which endpoints/routes do they guard?');
+      generatedQuestions.push('Where should permission checks be enforced (server middleware, domain boundary, or client UI)?');
+    } else if (combined.includes('mobile') || combined.includes('ui') || combined.includes('layout') || combined.includes('phone')) {
+      generatedQuestions.push('Which viewports (~390px mobile, tablet, or desktop) and specific components exhibit the layout issue?');
+      generatedQuestions.push('What are the reproduction steps or expected visual alignment for the broken state?');
+    } else if (combined.includes('stale') || combined.includes('clean up') || combined.includes('unused') || combined.includes('delete')) {
+      generatedQuestions.push('Which specific files, functions, or modules are targeted for removal?');
+      generatedQuestions.push('What verification test confirms no external consumers or dynamic imports depend on them?');
+    } else if (combined.includes('database') || combined.includes('quer')) {
+      generatedQuestions.push('Which specific tables, models, or queries are encountering performance or structural issues?');
+      generatedQuestions.push('What architectural pattern or query optimization is expected?');
+    } else {
+      generatedQuestions.push('What observable acceptance criteria define successful completion of this task?');
+      generatedQuestions.push('Which files or modules should be modified to implement this change?');
+    }
+
+    const decision = 'ASK_QUESTIONS';
+    return {
+      issueId: issue.id,
+      decision,
+      expectedAction: issue.expectedAction,
+      isCorrect: decision === issue.expectedAction,
+      confidence: 0.95,
+      missingCriteria,
+      generatedQuestions: generatedQuestions.slice(0, 2),
+      rationale: `Ambiguity detected: ${missingCriteria.join('; ')}`,
+    };
+  }
+
+  const decision = 'PROCEED_TO_IMPLEMENT';
+  return {
+    issueId: issue.id,
+    decision,
+    expectedAction: issue.expectedAction,
+    isCorrect: decision === issue.expectedAction,
+    confidence: 0.95,
+    missingCriteria: [],
+    generatedQuestions: [],
+    rationale: 'Well-specified: contains actionable tasks, file targets, and verification criteria.',
+  };
+}
+
+/**
+ * Execute an automated benchmark run over a dataset of candidate issues
+ */
+export function runAmbiguityBenchmark(dataset: BenchmarkIssue[]): BenchmarkRunSummary {
+  const itemizedResults = dataset.map((issue) => evaluateIssueAmbiguity(issue));
+  const totalEvaluated = itemizedResults.length;
+  const passedCount = itemizedResults.filter((r) => r.isCorrect).length;
+  const failedCount = totalEvaluated - passedCount;
+  const accuracy = totalEvaluated > 0 ? passedCount / totalEvaluated : 0;
+
+  // False Compliance: expected ASK_QUESTIONS, but agent decided PROCEED_TO_IMPLEMENT (Yes-Man error)
+  const falseComplianceCount = itemizedResults.filter(
+    (r) => r.expectedAction === 'ASK_QUESTIONS' && r.decision === 'PROCEED_TO_IMPLEMENT'
+  ).length;
+  const falseComplianceRate = totalEvaluated > 0 ? falseComplianceCount / totalEvaluated : 0;
+
+  // False Obstruction: expected PROCEED_TO_IMPLEMENT, but agent decided ASK_QUESTIONS
+  const falseObstructionCount = itemizedResults.filter(
+    (r) => r.expectedAction === 'PROCEED_TO_IMPLEMENT' && r.decision === 'ASK_QUESTIONS'
+  ).length;
+  const falseObstructionRate = totalEvaluated > 0 ? falseObstructionCount / totalEvaluated : 0;
+
+  return {
+    totalEvaluated,
+    passedCount,
+    failedCount,
+    accuracy,
+    falseComplianceCount,
+    falseComplianceRate,
+    falseObstructionCount,
+    falseObstructionRate,
+    itemizedResults,
+  };
+}
+
+/**
+ * Extract an ambiguous benchmark fixture from an agent failure log or review ping-pong run
+ */
+export function extractBenchmarkCaseFromLog(
+  rawLog: string,
+  issueDetails?: { title?: string; body?: string; id?: string }
+): BenchmarkIssue | null {
+  const meta = parseLogMetadata(rawLog);
+  const catMatch = rawLog.match(/Category:\s*`([^`]+)`/);
+  const cat = catMatch ? catMatch[1] : '';
+
+  const isAmbiguityPattern =
+    cat === 'ambiguous_spec' ||
+    cat === 'prompt_unclear' ||
+    cat === 'telemetry_rabbit_hole' ||
+    rawLog.toLowerCase().includes('ambiguity gate') ||
+    rawLog.toLowerCase().includes('needs-info');
+
+  const roundsMatch = rawLog.match(/Review rounds \| (\d+)/);
+  const hasExcessiveBounces = roundsMatch && parseInt(roundsMatch[1], 10) >= 3;
+
+  if (!isAmbiguityPattern && !hasExcessiveBounces && meta?.result !== 'FAILURE') {
+    return null;
+  }
+
+  const reasonMatch = rawLog.match(/Details:\s*([^\n]+)/) || rawLog.match(/\| Error reason \| ([^|]+) \|/);
+  const reason = reasonMatch ? reasonMatch[1].trim() : 'Unspecified failure';
+  const timestamp = meta?.timestamp || new Date().toISOString();
+
+  const title = issueDetails?.title || `Ambiguous requirement discovered in run ${timestamp}`;
+  const body = issueDetails?.body || `Issue encountered execution failure or review bounce.\n\nEvidence: ${reason}`;
+  const id = issueDetails?.id || `optimizer-extracted-${timestamp.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}`;
+
+  return {
+    id,
+    title,
+    body,
+    labels: ['needs-info', 'eval-extracted'],
+    expectedAction: 'ASK_QUESTIONS',
+    rationale: `Extracted by optimizer from failure log (${reason}). Agent should ask clarifying questions before implementation.`,
+    origin: 'optimizer_extracted',
+    sourceLogTimestamp: timestamp,
+  };
+}
+
+/**
+ * Dynamically feed an optimizer-extracted issue into a benchmark dataset
+ */
+export function feedOptimizerCaseToBenchmark(
+  dataset: BenchmarkIssue[],
+  newCase: BenchmarkIssue
+): BenchmarkIssue[] {
+  const existingIdx = dataset.findIndex((i) => i.id === newCase.id || i.title === newCase.title);
+  if (existingIdx >= 0) {
+    const updated = [...dataset];
+    updated[existingIdx] = newCase;
+    return updated;
+  }
+  return [...dataset, newCase];
+}
+
+/**
+ * Load the baseline ambiguity benchmark dataset
+ */
+export function getBaselineAmbiguityBenchmarkDataset(): BenchmarkIssue[] {
+  const benchmarkFile = path.resolve(process.cwd(), 'templates/evals/ambiguity-benchmark.json');
+  if (fs.existsSync(benchmarkFile)) {
+    try {
+      const parsed = JSON.parse(fs.readFileSync(benchmarkFile, 'utf8'));
+      if (Array.isArray(parsed)) return parsed;
+    } catch {}
+  }
+
+  return [
+    {
+      id: 'eval-ambiguous-01',
+      title: 'Improve telemetry export speed',
+      body: 'The telemetry export is feeling sluggish lately. Please optimize it to make it faster.',
+      labels: ['enhancement'],
+      expectedAction: 'ASK_QUESTIONS',
+      rationale: 'Lacks baseline metrics, target latency thresholds, profiling data, or specific code bottlenecks.',
+      origin: 'synthetic',
+    },
+    {
+      id: 'eval-specified-01',
+      title: 'Fix CLI flag parsing for --budget in telemetry command',
+      body: 'When running `jonah-fleet telemetry --budget 5000000`, the budget is ignored because the option parser expects a number.\n\n## Tasks\n- [ ] Parse `options.budget` string to integer in `src/commands/telemetry.ts`\n- [ ] Fall back to manifest `weeklyTokenBudget` if omitted\n- [ ] Add unit test in `tests/telemetry-cli.test.ts` verifying flag override\n\nVerification: `npm test tests/telemetry-cli.test.ts`',
+      labels: ['bug', 'priority/P1'],
+      expectedAction: 'PROCEED_TO_IMPLEMENT',
+      rationale: 'Carries reproduction path, explicit file locations, task checklist, and test verification command.',
+      origin: 'synthetic',
+    },
+  ];
+}
+

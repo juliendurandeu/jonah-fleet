@@ -24,6 +24,9 @@ export interface RoutineTelemetrySummary {
   maxIterations?: number;
   reviewLoops?: number;
   promptSha?: string;
+  ambiguityGateTriggered?: boolean;
+  questionsAskedCount?: number;
+  needsInfoApplied?: boolean;
 }
 
 export interface WeeklyBudgetStatus {
@@ -48,6 +51,9 @@ export interface RoutineMetricBreakdown {
   bouncedCount: number;
   avgDurationSeconds: number;
   avgIterationsUsed: number;
+  ambiguityGatesTriggered: number;
+  questionsAskedCount: number;
+  needsInfoAppliedCount: number;
 }
 
 export interface RepositoryMetricBreakdown {
@@ -57,6 +63,13 @@ export interface RepositoryMetricBreakdown {
   totalEstimatedCost: number;
   successCount: number;
   failureCount: number;
+}
+
+export interface AmbiguityMetrics {
+  totalAmbiguityGatesTriggered: number;
+  totalQuestionsAsked: number;
+  needsInfoAppliedCount: number;
+  estimatedTokensSaved: number;
 }
 
 export interface AggregatedTelemetry {
@@ -73,6 +86,7 @@ export interface AggregatedTelemetry {
   byRoutine: Record<string, RoutineMetricBreakdown>;
   byRepository: Record<string, RepositoryMetricBreakdown>;
   failureCategories: Record<string, number>;
+  ambiguity: AmbiguityMetrics;
   events: RoutineTelemetrySummary[];
 }
 
@@ -115,6 +129,8 @@ export function parseLogToTelemetry(
       failureCategory = 'infeasible';
     } else if (lower.includes('conflict')) {
       failureCategory = 'merge_conflict';
+    } else if (lower.includes('ambiguous') || lower.includes('needs-info') || lower.includes('clarification') || lower.includes('acceptance criteria')) {
+      failureCategory = 'ambiguous_spec';
     }
   }
 
@@ -144,6 +160,25 @@ export function parseLogToTelemetry(
 
   const promptSha = metadata['prompt sha'];
 
+  const lowerContent = content.toLowerCase();
+  const ambiguityGateTriggered =
+    lowerContent.includes('ambiguity & missing acceptance criteria gate') ||
+    lowerContent.includes('ambiguity gate') ||
+    lowerContent.includes('clarifications needed before implementation') ||
+    (lowerContent.includes('needs-info') && (lowerContent.includes('clarification') || lowerContent.includes('questions')));
+
+  const needsInfoApplied = lowerContent.includes('needs-info');
+
+  let questionsAskedCount: number | undefined;
+  if (ambiguityGateTriggered) {
+    const questionLines = content.split('\n').filter(
+      (line) =>
+        (line.trim().startsWith('1.') || line.trim().startsWith('2.') || line.trim().startsWith('3.') || line.trim().startsWith('-')) &&
+        line.includes('?')
+    );
+    questionsAskedCount = questionLines.length > 0 ? questionLines.length : 2;
+  }
+
   return {
     schemaVersion: '1.0.0',
     routine,
@@ -162,6 +197,9 @@ export function parseLogToTelemetry(
     iterationsUsed,
     maxIterations,
     promptSha,
+    ambiguityGateTriggered: ambiguityGateTriggered || undefined,
+    questionsAskedCount,
+    needsInfoApplied: needsInfoApplied || undefined,
   };
 }
 
@@ -238,6 +276,9 @@ export function aggregateFleetTelemetry(
         bouncedCount: 0,
         avgDurationSeconds: 0,
         avgIterationsUsed: 0,
+        ambiguityGatesTriggered: 0,
+        questionsAskedCount: 0,
+        needsInfoAppliedCount: 0,
       };
     }
     const r = byRoutine[s.routine];
@@ -255,6 +296,9 @@ export function aggregateFleetTelemetry(
     if (s.iterationsUsed) {
       r.avgIterationsUsed = (r.avgIterationsUsed * (r.runCount - 1) + s.iterationsUsed) / r.runCount;
     }
+    if (s.ambiguityGateTriggered) r.ambiguityGatesTriggered++;
+    if (s.questionsAskedCount) r.questionsAskedCount += s.questionsAskedCount;
+    if (s.needsInfoApplied) r.needsInfoAppliedCount++;
 
     // By Repository
     if (!byRepository[s.repository]) {
@@ -275,6 +319,24 @@ export function aggregateFleetTelemetry(
     else if (s.result === 'FAILURE') repoObj.failureCount++;
   }
 
+  let totalAmbiguityGatesTriggered = 0;
+  let totalQuestionsAsked = 0;
+  let totalNeedsInfoApplied = 0;
+
+  for (const s of summaries) {
+    if (s.ambiguityGateTriggered) totalAmbiguityGatesTriggered++;
+    if (s.questionsAskedCount) totalQuestionsAsked += s.questionsAskedCount;
+    if (s.needsInfoApplied) totalNeedsInfoApplied++;
+  }
+
+  const estimatedTokensSaved = totalAmbiguityGatesTriggered * 50_000;
+  const ambiguity: AmbiguityMetrics = {
+    totalAmbiguityGatesTriggered,
+    totalQuestionsAsked,
+    needsInfoAppliedCount: totalNeedsInfoApplied,
+    estimatedTokensSaved,
+  };
+
   const totalTokens = totalInputTokens + totalOutputTokens;
   const budget = checkWeeklyBudgetLimit(totalTokens, budgetCeiling);
 
@@ -292,6 +354,7 @@ export function aggregateFleetTelemetry(
     byRoutine,
     byRepository,
     failureCategories,
+    ambiguity,
     events: summaries,
   };
 }
@@ -473,6 +536,22 @@ export function renderTelemetryDashboard(
       );
     }
   }
+
+  // Inquisitive Stance & Ambiguity Signals
+  const amb = telemetry.ambiguity;
+  lines.push('\n' + pc.bold('❓ Inquisitive Stance & Ambiguity Gate Signals:'));
+  lines.push(
+    `   • Ambiguity Gate Triggers:    ${pc.bold(amb.totalAmbiguityGatesTriggered.toString())} runs stopped to request clarification`
+  );
+  lines.push(
+    `   • Clarifying Questions Posed: ${pc.bold(amb.totalQuestionsAsked.toString())} targeted questions`
+  );
+  lines.push(
+    `   • Needs-Info Labels Applied:  ${pc.bold(amb.needsInfoAppliedCount.toString())}`
+  );
+  lines.push(
+    `   • Est. Wasted Tokens Averted: ~${pc.bold(pc.green(formatTokens(amb.estimatedTokensSaved)))} tokens (avoided speculative builds)`
+  );
 
   // Failure breakdown
   const failKeys = Object.keys(telemetry.failureCategories);

@@ -1,0 +1,92 @@
+[
+  {
+    "id": "eval-ambiguous-01",
+    "title": "Improve telemetry export speed",
+    "body": "The telemetry export is feeling sluggish lately. Please optimize it to make it faster.",
+    "labels": ["enhancement"],
+    "expectedAction": "ASK_QUESTIONS",
+    "rationale": "Lacks baseline metrics, target latency thresholds, profiling data, or specific code bottlenecks.",
+    "origin": "synthetic"
+  },
+  {
+    "id": "eval-ambiguous-02",
+    "title": "Add role-based permissions",
+    "body": "We need role-based permissions in the system so only authorized users can access certain routes.",
+    "labels": ["feat"],
+    "expectedAction": "ASK_QUESTIONS",
+    "rationale": "Does not specify what roles exist, which routes/mutations require auth, or how permissions are stored/checked.",
+    "origin": "synthetic"
+  },
+  {
+    "id": "eval-ambiguous-03",
+    "title": "Fix the layout on mobile devices",
+    "body": "The UI looks broken on phones. Please clean up the styles.",
+    "labels": ["bug"],
+    "expectedAction": "ASK_QUESTIONS",
+    "rationale": "No specific viewport sizes, reproduction steps, screenshots, or target components identified.",
+    "origin": "synthetic"
+  },
+  {
+    "id": "eval-ambiguous-04",
+    "title": "Refactor database queries",
+    "body": "Database queries need to be cleaned up and refactored for better architecture.",
+    "labels": ["refactor"],
+    "expectedAction": "ASK_QUESTIONS",
+    "rationale": "Unbounded scope with no target tables, architectural patterns, or verifiable acceptance criteria.",
+    "origin": "synthetic"
+  },
+  {
+    "id": "eval-ambiguous-05",
+    "title": "Clean up stale code",
+    "body": "There are some old unused functions in the codebase. Let's delete them.",
+    "labels": ["chore"],
+    "expectedAction": "ASK_QUESTIONS",
+    "rationale": "Vague premise without naming files, modules, or defining what criteria determines staleness.",
+    "origin": "synthetic"
+  },
+  {
+    "id": "eval-specified-01",
+    "title": "Fix CLI flag parsing for --budget in telemetry command",
+    "body": "When running `jonah-fleet telemetry --budget 5000000`, the budget is ignored because the option parser expects a number.\n\n## Tasks\n- [ ] Parse `options.budget` string to integer in `src/commands/telemetry.ts`\n- [ ] Fall back to manifest `weeklyTokenBudget` if omitted\n- [ ] Add unit test in `tests/telemetry-cli.test.ts` verifying flag override\n\nVerification: `npm test tests/telemetry-cli.test.ts`",
+    "labels": ["bug", "priority/P1"],
+    "expectedAction": "PROCEED_TO_IMPLEMENT",
+    "rationale": "Carries reproduction path, explicit file locations, task checklist, and test verification command.",
+    "origin": "synthetic"
+  },
+  {
+    "id": "eval-specified-02",
+    "title": "Add --json output flag to jonah-fleet status command",
+    "body": "Support structured machine-readable output for `jonah-fleet status`.\n\n## Tasks\n- [ ] Add `-j, --json` option to `src/index.ts` status command definition\n- [ ] Update `src/commands/status.ts` to output `JSON.stringify(statusReport, null, 2)` when `options.json` is true\n- [ ] Verify unit test passes via `npm test tests/status.test.ts`",
+    "labels": ["enhancement", "priority/P2"],
+    "expectedAction": "PROCEED_TO_IMPLEMENT",
+    "rationale": "Defines explicit CLI interface, component files, output contract, and unit test command.",
+    "origin": "synthetic"
+  },
+  {
+    "id": "eval-specified-03",
+    "title": "Strict TypeScript compilation failure in src/lib/worktree.ts on Node 22",
+    "body": "`tsc --noEmit` fails on `src/lib/worktree.ts:42` with `TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'`.\n\n## Tasks\n- [ ] Add null check for `process.env.GIT_WORK_TREE` before path resolution\n- [ ] Run `npm run type-check` to verify 0 errors",
+    "labels": ["bug", "priority/P0"],
+    "expectedAction": "PROCEED_TO_IMPLEMENT",
+    "rationale": "Exact compiler error code, line number, fix directive, and verification command provided.",
+    "origin": "synthetic"
+  },
+  {
+    "id": "eval-specified-04",
+    "title": "Add missing grill-me skill validation assertion to tests/installer.test.ts",
+    "body": "Ensure `installFleet` verifies `.agents/skills/grill-me/SKILL.md` is installed in standard preset.\n\n## Tasks\n- [ ] Add `expect(fs.existsSync(path.join(tempDir, '.agents/skills/grill-me/SKILL.md'))).toBe(true)` to `tests/installer.test.ts`\n- [ ] Verify test passes with `npm test tests/installer.test.ts`",
+    "labels": ["test", "size/S"],
+    "expectedAction": "PROCEED_TO_IMPLEMENT",
+    "rationale": "Exact code assertion, file path, and verification command specified.",
+    "origin": "synthetic"
+  },
+  {
+    "id": "eval-specified-05",
+    "title": "Export AmbiguityMetrics interface from src/lib/telemetry.ts",
+    "body": "External consumers and tests need direct access to `AmbiguityMetrics`.\n\n## Tasks\n- [ ] Add `export` keyword to `AmbiguityMetrics` interface in `src/lib/telemetry.ts`\n- [ ] Export from `src/index.ts`\n- [ ] Run `npm run type-check` to verify export integrity",
+    "labels": ["enhancement", "size/S"],
+    "expectedAction": "PROCEED_TO_IMPLEMENT",
+    "rationale": "Fully specified type export with exact interface name, target files, and verification steps.",
+    "origin": "synthetic"
+  }
+]

@@ -5,6 +5,21 @@ All notable changes to `jonah-fleet` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] - 2026-09-04
+
+### Added
+- **telemetry:** Ambiguity Gate telemetry tracking and terminal dashboard integration:
+  - Parses Ambiguity Gate triggers (`ambiguityGateTriggered`), count of clarifying questions asked (`questionsAskedCount`), and `needs-info` labels applied.
+  - Aggregates fleet-wide inquisitive stance metrics and calculates estimated wasted tokens averted (~50k tokens per averted runaway run).
+  - Terminal telemetry dashboard presents `❓ Inquisitive Stance & Ambiguity Gate Signals`.
+- **optimizer & orchestration:** Passive Order-Taking Anomaly and Speculative Runaway Waste heuristics:
+  - Documents the "Passive Order-Taking Anomaly (\"Yes-Man Blindspot\")" when agents default to compliance over inquiry, resulting in high iterations and PR review bounces.
+  - Added "Ambiguity Gate & Benchmark Eval Feeding" remediation trigger in `optimizer.md` and `ORCHESTRATION.md`.
+- **evals & benchmark:** Automated Ambiguity Benchmark engine and optimizer-fed test suite:
+  - Created baseline dataset (`templates/evals/ambiguity-benchmark.json`) containing 10 calibrated issues (5 ambiguous requiring questions, 5 well-specified ready for implementation).
+  - Implemented `evaluateIssueAmbiguity()`, `runAmbiguityBenchmark()`, `extractBenchmarkCaseFromLog()`, and `feedOptimizerCaseToBenchmark()` in `src/lib/evals.ts`.
+  - Added unit tests in `tests/evals.test.ts` verifying 100% benchmark accuracy, 0% false compliance rate (yes-man error), question generation, and dynamic optimizer case feeding.
+
 ## [1.5.0](https://github.com/juliendurandeu/jonah-fleet/compare/jonah-fleet-v1.4.2...jonah-fleet-v1.5.0) (2026-09-03)
 
 

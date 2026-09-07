@@ -88,7 +88,10 @@ b. **Eligible → claim, then implement.** Call `get_me` once to learn your own 
    Only mark the PR ready after passing every check above.
 3b. **Ping-pong cap**: If this same PR has bounced between draft and ready 3 or more times over the same substantive finding, stop re-marking it ready. Post a comment summarizing the disagreement for human resolution and leave the PR in draft.
 3c. **Orphaned Ready PR Recovery**: If an open PR authored by this routine is `ready_for_review`, has passing CI, no unaddressed review comments, and has received no review activity for over 2 hours (e.g. because peer review crashed or encountered quota limits), kickstart the review routine by posting `/review` comment or toggling draft and ready (`gh pr ready <PR> --undo && gh pr ready <PR>`).
+   - **Passing CI Verification Gate**: Verify via `gh pr view <PR> --json statusCheckRollup,mergeStateStatus` that all required and existing checks have completed with `conclusion: "SUCCESS"` and `mergeStateStatus` is `CLEAN` (neither `UNSTABLE`, `BLOCKED`, nor `DIRTY`).
+   - **Unapproved/Pending Workflow Invariant**: NEVER post `/review` or toggle draft state if checks are in-progress, failing, or awaiting approval (`conclusion: "ACTION_REQUIRED"`). Doing so creates an infinite comment storm while workflows remain paused awaiting human permissions.
 4. Check open issues that have linked merged PRs — close them.
+
 5. If any PR was updated in this phase, STOP — run is SUCCESS.
 
 ### Phase 2: New work (only if Phase 1 had nothing to do)

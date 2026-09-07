@@ -164,7 +164,8 @@ How the fleet guarantees continuous review throughput, recovers from transient A
 1. **Failure Trapping & Transparency**: When a peer-review workflow session encounters an execution failure (e.g. LLM API rate limit / quota exhaustion or runner timeout), `trigger-review-routine.yml` traps the failure and posts an informational status notice on the PR. Failures are made immediately visible on the PR timeline rather than silently failing in the background.
 2. **Periodic Scan Sweep (Watchdog)**: `trigger-review-routine.yml` runs a scheduled 2-hour cron sweep (`cron: '45 */2 * * *'`) in Scan mode. Any open PR in `ready_for_review` state that was orphaned due to a transient API rate limit or missed event trigger is automatically picked up, evaluated, and resolved.
 3. **Interactive Re-triggering**: Any team member or author can immediately re-dispatch review by commenting `/review`, `/peer-review`, `/retrigger`, or `/re-review` on any open pull request, or manually triggering `trigger-review-routine.yml` via `workflow_dispatch`.
-4. **Autowork Phase 1 Watchdog**: During Phase 1 convergence, Autowork actively identifies open ready PRs that have received no review feedback for $>2$ hours, re-triggering review via draft toggle or `/review` comment before picking up new work.
+4. **Autowork Phase 1 Watchdog**: During Phase 1 convergence, Autowork actively identifies open ready PRs that have received no review feedback for $>2$ hours, re-triggering review via draft toggle or `/review` comment before picking up new work. Review re-triggering is strictly conditioned on all CI checks having passed (`conclusion: SUCCESS`, `mergeStateStatus: CLEAN`) and is strictly prohibited if checks are in-progress or awaiting approval (`ACTION_REQUIRED`).
+
 
 ---
 

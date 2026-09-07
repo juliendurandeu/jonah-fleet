@@ -172,3 +172,34 @@ jobs:
               fi
             fi
           fi
+
+      - name: Commit and push run log directly to main
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT || github.token }}
+        run: |
+          LATEST_LOG=$(ls -t .github/prompts/logs/autowork/*.md 2>/dev/null | head -n 1)
+          if [ -n "$LATEST_LOG" ] && [ -f "$LATEST_LOG" ]; then
+            TMP_LOG_FILE=$(mktemp)
+            cp "$LATEST_LOG" "$TMP_LOG_FILE"
+            LOG_REL_PATH="$LATEST_LOG"
+            LOG_NAME=$(basename "$LATEST_LOG" .md)
+
+            git fetch origin main:main || git fetch origin main || true
+            git checkout main || git checkout -B main origin/main || true
+
+            mkdir -p "$(dirname "$LOG_REL_PATH")"
+            cp "$TMP_LOG_FILE" "$LOG_REL_PATH"
+            rm -f "$TMP_LOG_FILE"
+
+            git add "$LOG_REL_PATH"
+            if ! git diff --cached --quiet; then
+              git commit -m "docs(log): record autowork run ${LOG_NAME} [skip ci]" || true
+              if [ -n "$GH_TOKEN" ]; then
+                git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" main || git push origin main || true
+              else
+                git push origin main || true
+              fi
+            fi
+          fi
+

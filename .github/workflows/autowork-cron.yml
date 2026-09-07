@@ -180,17 +180,26 @@ jobs:
         run: |
           LATEST_LOG=$(ls -t .github/prompts/logs/autowork/*.md 2>/dev/null | head -n 1)
           if [ -n "$LATEST_LOG" ] && [ -f "$LATEST_LOG" ]; then
-            git fetch origin main:main || true
-            CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-            if [ "$CURRENT_BRANCH" != "main" ]; then
-              git --work-tree=. --git-dir=.git checkout main -- "$LATEST_LOG" 2>/dev/null || true
-              git checkout main || true
-            fi
-            git add "$LATEST_LOG"
+            TMP_LOG_FILE=$(mktemp)
+            cp "$LATEST_LOG" "$TMP_LOG_FILE"
+            LOG_REL_PATH="$LATEST_LOG"
+            LOG_NAME=$(basename "$LATEST_LOG" .md)
+
+            git fetch origin main:main || git fetch origin main || true
+            git checkout main || git checkout -B main origin/main || true
+
+            mkdir -p "$(dirname "$LOG_REL_PATH")"
+            cp "$TMP_LOG_FILE" "$LOG_REL_PATH"
+            rm -f "$TMP_LOG_FILE"
+
+            git add "$LOG_REL_PATH"
             if ! git diff --cached --quiet; then
-              LOG_NAME=$(basename "$LATEST_LOG" .md)
               git commit -m "docs(log): record autowork run ${LOG_NAME} [skip ci]" || true
-              git push origin main || true
+              if [ -n "$GH_TOKEN" ]; then
+                git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" main || git push origin main || true
+              else
+                git push origin main || true
+              fi
             fi
           fi
 

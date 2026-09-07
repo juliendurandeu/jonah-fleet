@@ -40,4 +40,16 @@ After completing (SUCCESS or FAILURE), write a log file to `.github/prompts/logs
 - Full execution trace with tool calls
 - If FAILURE: root cause, category, and suggested fix
 
-**Important**: Commit the log file directly to `main` and push — explicitly permitted for files under `.github/prompts/logs/**`. Follow the Log delivery fallback in `ORCHESTRATION.md` if direct push fails.
+**Log Delivery Protocol & Invariants**:
+- **Negative Rule**: NEVER commit or push run logs to a feature branch or open PR branch. Doing so emits a `pull_request: synchronize` event under bot credentials, triggering GitHub Actions workflow approval gates (`action_required`) that stall CI.
+- **Mandatory `[skip ci]`**: Always append `[skip ci]` to any log commit message (e.g. `docs(log): record {routine-name} run {timestamp} [skip ci]`).
+- **Direct Push to `main`**: Commit the log file directly to `main` and push — explicitly permitted for files under `.github/prompts/logs/**`:
+  ```bash
+  git checkout main
+  git pull origin main
+  git add .github/prompts/logs/{routine-name}/<timestamp>.md
+  git commit -m "docs(log): record {routine-name} run <timestamp> [skip ci]"
+  git push origin main
+  ```
+  Follow the Log delivery fallback in `ORCHESTRATION.md` if direct push fails.
+

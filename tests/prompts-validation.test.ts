@@ -313,7 +313,25 @@ describe('Prompt Validation & Invariants', () => {
     }
   });
 
+  it('validates Log Delivery Protocol & Invariants in autowork.md, _prompt-template.md, and ORCHESTRATION.md', () => {
+    const autoworkContent = fs.readFileSync(path.join(promptsDir, 'autowork.md'), 'utf8');
+    expect(autoworkContent).toContain('Log Delivery Protocol & Invariants');
+    expect(autoworkContent).toContain('NEVER commit or push run logs to a feature branch or open PR branch');
+    expect(autoworkContent).toContain('Mandatory `[skip ci]`');
+    expect(autoworkContent).toContain('git checkout main');
+
+    const templateContent = fs.readFileSync(path.join(promptsDir, '_prompt-template.md'), 'utf8');
+    expect(templateContent).toContain('Log Delivery Protocol & Invariants');
+    expect(templateContent).toContain('NEVER commit or push run logs to a feature branch or open PR branch');
+    expect(templateContent).toContain('Mandatory `[skip ci]`');
+
+    const orchestrationContent = fs.readFileSync(path.join(promptsDir, 'ORCHESTRATION.md'), 'utf8');
+    expect(orchestrationContent).toContain('Never commit logs to an active feature branch');
+    expect(orchestrationContent).toContain('Mandatory `[skip ci]`');
+  });
+
   it('ensures workflow templates in templates/workflows are strictly synchronized with .github/workflows', () => {
+
     const workflowsDir = path.join(templatesDir, 'workflows');
     const githubWorkflowsDir = path.resolve(process.cwd(), '.github', 'workflows');
     expect(fs.existsSync(githubWorkflowsDir)).toBe(true);

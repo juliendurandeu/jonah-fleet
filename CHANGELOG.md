@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **deps:** update `vitest` devDependency from `4.1.11` to `^5.0.0` ([#78](https://github.com/juliendurandeu/jonah-fleet/issues/78))
 
 ### Added
+- **workflows:** Automate run log delivery directly to main with `[skip ci]` ([#72](https://github.com/juliendurandeu/jonah-fleet/pull/72)):
+  - Adds deterministic post-step in `autowork-cron.yml` and `templates/workflows/autowork-cron.yml` to safely preserve and push operational execution logs directly to `main` with `[skip ci]`.
+  - Adds workflow invariant tests in `tests/workflows-validation.test.ts`.
 - **prompts:** Guard orphaned ready PR recovery against unstable and unapproved CI ([#75](https://github.com/juliendurandeu/jonah-fleet/pull/75)):
   - Adds Passing CI Verification Gate requiring `conclusion: "SUCCESS"` and `mergeStateStatus: "CLEAN"` in Step 3c of `autowork.md` and `ORCHESTRATION.md`.
   - Prohibits review re-triggering and draft toggles when checks are in-progress, failing, or in `ACTION_REQUIRED` awaiting permissions to prevent comment loops.

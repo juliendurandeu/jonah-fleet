@@ -109,7 +109,7 @@ The routines invoke specialized engineering skills at key workflow checkpoints:
 
 Single source of truth for every routine's Logging section:
 1. **Direct commit to `main` is default**: For operational run logs under `.github/prompts/logs/**`, commit directly to `main` via GitHub API or git push. Never commit logs to an active feature branch.
-2. **Mandatory `[skip ci]`**: All log commits MUST include `[skip ci]` in the commit message (e.g. `docs(log): record <routine> run <timestamp> [skip ci]`) to prevent unnecessary CI executions or approval blocks.
+2. **Mandatory `[skip ci]`**: All log commits MUST include `[skip ci]` in the commit message (e.g. `docs(log): record {routine-name} run {timestamp} [skip ci]`) to prevent unnecessary CI executions or approval blocks.
 3. **Draft PR fallback**: If direct push fails, commit the log to a dedicated, fresh branch and open a draft PR carrying only the log files.
 4. **Automated landing**: `auto-merge-log-prs.yml` or `issues-housekeeping.md` lands accumulated log PRs. Draft log PRs are never reviewed by Peer Review and do not count toward Autowork's backpressure limits.
 

@@ -47,8 +47,8 @@ After completing (SUCCESS or FAILURE), write a log file to `.github/prompts/logs
   ```bash
   git checkout main
   git pull origin main
-  git add .github/prompts/logs/{routine-name}/<timestamp>.md
-  git commit -m "docs(log): record {routine-name} run <timestamp> [skip ci]"
+  git add .github/prompts/logs/{routine-name}/{timestamp}.md
+  git commit -m "docs(log): record {routine-name} run {timestamp} [skip ci]"
   git push origin main
   ```
   Follow the Log delivery fallback in `ORCHESTRATION.md` if direct push fails.

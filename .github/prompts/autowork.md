@@ -163,8 +163,8 @@ After completing (SUCCESS or FAILURE), write a log file to `.github/prompts/logs
   ```bash
   git checkout main
   git pull origin main
-  git add .github/prompts/logs/autowork/<timestamp>.md
-  git commit -m "docs(log): record autowork run <timestamp> [skip ci]"
+  git add .github/prompts/logs/autowork/{timestamp}.md
+  git commit -m "docs(log): record autowork run {timestamp} [skip ci]"
   git push origin main
   ```
   Follow the Log delivery fallback in `ORCHESTRATION.md` if direct push fails.

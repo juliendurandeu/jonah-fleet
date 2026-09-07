@@ -5,9 +5,13 @@ All notable changes to `jonah-fleet` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] - 2026-09-04
+## [Unreleased] - 2026-09-07
 
 ### Added
+- **prompts:** Guard orphaned ready PR recovery against unstable and unapproved CI ([#75](https://github.com/juliendurandeu/jonah-fleet/pull/75)):
+  - Adds Passing CI Verification Gate requiring `conclusion: "SUCCESS"` and `mergeStateStatus: "CLEAN"` in Step 3c of `autowork.md` and `ORCHESTRATION.md`.
+  - Prohibits review re-triggering and draft toggles when checks are in-progress, failing, or in `ACTION_REQUIRED` awaiting permissions to prevent comment loops.
+  - Adds validation test in `tests/prompts-validation.test.ts`.
 - **workflows:** Authenticate checkout with `GH_PAT` token in autowork workflows ([#73](https://github.com/juliendurandeu/jonah-fleet/pull/73)):
   - Configures `actions/checkout@v4` with `token: ${{ secrets.GH_PAT || github.token }}` across all autowork workflow templates to attribute Git pushes to a write-permission token and avoid stalled approval checks.
   - Added workflow validation tests in `tests/workflows-validation.test.ts`.

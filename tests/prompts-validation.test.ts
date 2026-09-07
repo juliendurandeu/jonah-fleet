@@ -253,6 +253,21 @@ describe('Prompt Validation & Invariants', () => {
     expect(autoworkContent).toMatch(/Do not guess or invent arbitrary specifications for ambiguous issues/);
   });
 
+  it('validates autowork.md guards Orphaned Ready PR Recovery with Passing CI Verification Gate', () => {
+    const autoworkPath = path.join(promptsDir, 'autowork.md');
+    const autoworkContent = fs.readFileSync(autoworkPath, 'utf8');
+    expect(autoworkContent).toContain('Orphaned Ready PR Recovery');
+    expect(autoworkContent).toContain('Passing CI Verification Gate');
+    expect(autoworkContent).toContain('Unapproved/Pending Workflow Invariant');
+    expect(autoworkContent).toContain('ACTION_REQUIRED');
+
+    const orchestrationPath = path.join(promptsDir, 'ORCHESTRATION.md');
+    const orchestrationContent = fs.readFileSync(orchestrationPath, 'utf8');
+    expect(orchestrationContent).toContain('Autowork Phase 1 Watchdog');
+    expect(orchestrationContent).toContain('ACTION_REQUIRED');
+  });
+
+
   it('validates grill-me skill exists and defines rigorous interrogation phases', () => {
     const grillSkillPath = path.join(templatesDir, 'skills', 'grill-me', 'SKILL.md');
     expect(fs.existsSync(grillSkillPath)).toBe(true);

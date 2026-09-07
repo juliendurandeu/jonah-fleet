@@ -34,6 +34,20 @@ describe('Workflow Validation & Invariants', () => {
     expect(content).toContain('TARGET_ISSUE: ${{ inputs.target_issue || inputs.issue_number }}');
   });
 
+  it('ensures autowork workflows authenticate checkout with GH_PAT token', () => {
+    const autoworkWorkflows = [
+      'autowork-cron.yml',
+      'trigger-autowork-manual.yml',
+      'trigger-autowork-on-bug.yml',
+      'trigger-autowork-on-merge.yml',
+    ];
+    for (const file of autoworkWorkflows) {
+      const content = fs.readFileSync(path.join(workflowsDir, file), 'utf8');
+      expect(content).toContain('token: ${{ secrets.GH_PAT || github.token }}');
+    }
+  });
+
+
   it('ensures all workflow templates exist in the templates directory', () => {
     for (const workflows of Object.values(ROUTINE_TO_WORKFLOW_MAP)) {
       for (const workflowFile of workflows) {

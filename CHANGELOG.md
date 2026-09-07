@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased] - 2026-09-04
 
 ### Added
+- **workflows:** Authenticate checkout with `GH_PAT` token in autowork workflows ([#73](https://github.com/juliendurandeu/jonah-fleet/pull/73)):
+  - Configures `actions/checkout@v4` with `token: ${{ secrets.GH_PAT || github.token }}` across all autowork workflow templates to attribute Git pushes to a write-permission token and avoid stalled approval checks.
+  - Added workflow validation tests in `tests/workflows-validation.test.ts`.
 - **telemetry:** Ambiguity Gate telemetry tracking and terminal dashboard integration:
   - Parses Ambiguity Gate triggers (`ambiguityGateTriggered`), count of clarifying questions asked (`questionsAskedCount`), and `needs-info` labels applied.
   - Aggregates fleet-wide inquisitive stance metrics and calculates estimated wasted tokens averted (~50k tokens per averted runaway run).

@@ -47,6 +47,17 @@ describe('Workflow Validation & Invariants', () => {
     }
   });
 
+  it('ensures autowork-cron.yml includes automated log delivery directly to main with [skip ci] in both templates and .github', () => {
+    const templatePath = path.join(workflowsDir, 'autowork-cron.yml');
+    const githubPath = path.join(process.cwd(), '.github/workflows/autowork-cron.yml');
+    for (const filePath of [templatePath, githubPath]) {
+      const content = fs.readFileSync(filePath, 'utf8');
+      expect(content).toContain('Commit and push run log directly to main');
+      expect(content).toContain('git checkout main');
+      expect(content).toContain('[skip ci]');
+      expect(content).toContain('git push');
+    }
+  });
 
   it('ensures all workflow templates exist in the templates directory', () => {
     for (const workflows of Object.values(ROUTINE_TO_WORKFLOW_MAP)) {

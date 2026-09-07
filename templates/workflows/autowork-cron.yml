@@ -172,3 +172,25 @@ jobs:
               fi
             fi
           fi
+
+      - name: Commit and push run log directly to main
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT || github.token }}
+        run: |
+          LATEST_LOG=$(ls -t .github/prompts/logs/autowork/*.md 2>/dev/null | head -n 1)
+          if [ -n "$LATEST_LOG" ] && [ -f "$LATEST_LOG" ]; then
+            git fetch origin main:main || true
+            CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+            if [ "$CURRENT_BRANCH" != "main" ]; then
+              git --work-tree=. --git-dir=.git checkout main -- "$LATEST_LOG" 2>/dev/null || true
+              git checkout main || true
+            fi
+            git add "$LATEST_LOG"
+            if ! git diff --cached --quiet; then
+              LOG_NAME=$(basename "$LATEST_LOG" .md)
+              git commit -m "docs(log): record autowork run ${LOG_NAME} [skip ci]" || true
+              git push origin main || true
+            fi
+          fi
+

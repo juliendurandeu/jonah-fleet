@@ -16,11 +16,19 @@ jobs:
   release-please:
     runs-on: ubuntu-latest
     steps:
+      - name: Generate GitHub App token
+        id: app-token
+        if: ${{ secrets.APP_ID != '' && secrets.APP_PRIVATE_KEY != '' }}
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
       - name: Run Release Please
         uses: googleapis/release-please-action@v4
         id: release
         with:
-          token: ${{ secrets.GH_PAT || github.token }}
+          token: ${{ steps.app-token.outputs.token || secrets.GH_PAT || github.token }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 

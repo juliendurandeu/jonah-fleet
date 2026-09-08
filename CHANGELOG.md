@@ -5,6 +5,25 @@ All notable changes to `jonah-fleet` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0](https://github.com/juliendurandeu/jonah-fleet/compare/jonah-fleet-v1.5.0...jonah-fleet-v1.6.0) (2026-09-08)
+
+
+### Features
+
+* **autowork:** single-flight PR claim protocol in Phase 1 convergence ([#59](https://github.com/juliendurandeu/jonah-fleet/issues/59)) ([991e3f6](https://github.com/juliendurandeu/jonah-fleet/commit/991e3f6d3848bbb8dda7e6b8667533dc0ffef56d))
+* **daemon:** display target PR/issue ID & title and wrap terminal card lines without cropping ([#60](https://github.com/juliendurandeu/jonah-fleet/issues/60)) ([43a3abb](https://github.com/juliendurandeu/jonah-fleet/commit/43a3abb51f86b5f0368ea2fdfc0f26e38f833ab9))
+* **daemon:** drain reviewable PR backlog before moving to autowork ([#62](https://github.com/juliendurandeu/jonah-fleet/issues/62)) ([eeb9d57](https://github.com/juliendurandeu/jonah-fleet/commit/eeb9d57e5df4d00fa0b9f824ff231b7df9625386))
+* **evals:** add fleet ambiguity telemetry, optimizer anomaly heuristics, and automated benchmark evals ([#68](https://github.com/juliendurandeu/jonah-fleet/issues/68)) ([a377ea5](https://github.com/juliendurandeu/jonah-fleet/commit/a377ea5ffd0ff21898a8f921f8738fa2b886448c))
+* **prompts:** enforce log delivery protocol with [skip ci] and branch invariants ([#74](https://github.com/juliendurandeu/jonah-fleet/issues/74)) ([23b033f](https://github.com/juliendurandeu/jonah-fleet/commit/23b033fc06aaa2ed5cca292be16f6db70a194465))
+* **prompts:** guard orphaned ready PR recovery against unstable and unapproved CI ([#75](https://github.com/juliendurandeu/jonah-fleet/issues/75)) ([8a0868b](https://github.com/juliendurandeu/jonah-fleet/commit/8a0868bde2ceab909b9bc01a30046818947a0f3a))
+* **workflow:** authenticate checkout with GH_PAT token in autowork workflows ([#73](https://github.com/juliendurandeu/jonah-fleet/issues/73)) ([7a276a6](https://github.com/juliendurandeu/jonah-fleet/commit/7a276a60cc3dc3f1f31514efd657a0f714fa12cf))
+* **workflow:** automate run log delivery to main with [skip ci] ([#72](https://github.com/juliendurandeu/jonah-fleet/issues/72)) ([0dc1b3b](https://github.com/juliendurandeu/jonah-fleet/commit/0dc1b3b8bbe626fbce0f5d73fa67e98df165339f))
+
+
+### Bug Fixes
+
+* **ci:** avoid direct secrets reference in release-please if conditional ([#83](https://github.com/juliendurandeu/jonah-fleet/issues/83)) ([6d6dcd9](https://github.com/juliendurandeu/jonah-fleet/commit/6d6dcd9c472f76dc6026ed16cca49cf665a6ea8c))
+
 ## [Unreleased] - 2026-09-07
 
 ### Changed

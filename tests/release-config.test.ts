@@ -37,6 +37,7 @@ describe('Release Configuration & Manifests', () => {
     const workflowContent = fs.readFileSync(workflowPath, 'utf8');
     expect(workflowContent).toMatch(/token:\s*\${{\s*steps\.app-token\.outputs\.token\s*\|\|\s*secrets\.GH_PAT\s*\|\|\s*github\.token\s*}}/);
     expect(workflowContent).toContain('actions/create-github-app-token');
+    expect(workflowContent).not.toMatch(/if:\s*.*secrets\./);
     expect(workflowContent).toContain('id-token: write');
     expect(workflowContent).toContain('contents: write');
     expect(workflowContent).toContain('pull-requests: write');

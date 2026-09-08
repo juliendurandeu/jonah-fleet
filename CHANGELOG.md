@@ -24,6 +24,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * **ci:** avoid direct secrets reference in release-please if conditional ([#83](https://github.com/juliendurandeu/jonah-fleet/issues/83)) ([6d6dcd9](https://github.com/juliendurandeu/jonah-fleet/commit/6d6dcd9c472f76dc6026ed16cca49cf665a6ea8c))
 
+## [Unreleased] - 2026-09-08
+
+### Added
+- **manifest:** Support model profiles, reasoning effort levels, and budget controls in `agents-manifest.json` ([#85](https://github.com/juliendurandeu/jonah-fleet/pull/85)):
+  - Extends `schema.json` with `models` and `budgets` configuration blocks.
+  - Adds `resolveRoutineConfig()` helper in `src/lib/manifest.ts` with default fallback profiles in `src/lib/presets.ts`.
+  - Updates all workflow templates and `.github/workflows/` with dynamic routine model and timeout resolution.
+  - Enhances `jonah-fleet status` to render model profiles and configured budgets.
+  - Adds unit test coverage in `tests/manifest.test.ts`.
+
 ## [Unreleased] - 2026-09-07
 
 ### Changed

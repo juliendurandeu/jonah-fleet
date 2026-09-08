@@ -90,23 +90,30 @@ describe('Workflow Validation & Invariants', () => {
     expect(content).toContain('Peer Review Routine Notice');
   });
 
-  it('validates Upstream Symphony Radar workflow and evaluation matrix script', () => {
+  it('validates Upstream Ecosystem Radar workflow and evaluation matrix script covering Symphony and Funes', () => {
     const radarWorkflowPath = path.join(process.cwd(), '.github/workflows/symphony-radar.yml');
     expect(fs.existsSync(radarWorkflowPath)).toBe(true);
     const workflowContent = fs.readFileSync(radarWorkflowPath, 'utf8');
     expect(workflowContent).toContain('Upstream Symphony Radar');
     expect(workflowContent).toContain('schedule:');
     expect(workflowContent).toContain('workflow_dispatch:');
-    expect(workflowContent).toContain('issues: write');
+    expect(workflowContent).toContain('fetch-symphony-radar.js');
 
     const radarScriptPath = path.join(process.cwd(), '.github/scripts/fetch-symphony-radar.js');
     expect(fs.existsSync(radarScriptPath)).toBe(true);
     const scriptContent = fs.readFileSync(radarScriptPath, 'utf8');
+    expect(scriptContent).toContain('openai/symphony');
+    expect(scriptContent).toContain('huggingface/funes');
+    expect(scriptContent).toContain('Upstream Orchestration Watch');
+    expect(scriptContent).toContain('Upstream Agent Memory Watch');
     expect(scriptContent).toContain('Upstream Architectural Evaluation Matrix');
+    expect(scriptContent).toContain('Agent Memory & Session Indexing Evaluation (Funes Integration)');
     expect(scriptContent).toContain('Zero-Daemon Invariant');
     expect(scriptContent).toContain('Issue Tracker Abstraction');
     expect(scriptContent).toContain('Token & Cost Economy');
     expect(scriptContent).toContain('Multi-Repo Portability');
+    expect(scriptContent).toContain('Zero-LLM Ingestion');
+    expect(scriptContent).toContain('Pull-Based Memory Delivery');
     expect(scriptContent).toContain('Category A');
     expect(scriptContent).toContain('Category B');
     expect(scriptContent).toContain('Category C');
@@ -121,7 +128,8 @@ describe('Workflow Validation & Invariants', () => {
     expect(noticeContent).toContain('Single-flight issue claiming');
 
     const orchestrationDoc = fs.readFileSync(path.join(templatesDir, 'prompts/ORCHESTRATION.md'), 'utf8');
-    expect(orchestrationDoc).toContain('Upstream Symphony Intel & Architectural Evaluation Framework');
+    expect(orchestrationDoc).toContain('Upstream Symphony & Funes Intel & Architectural Evaluation Framework');
     expect(orchestrationDoc).toContain('Layer 1 (Zero-Daemon Invariant)');
+    expect(orchestrationDoc).toContain('Agent Memory & Session Indexing Evaluation Dimensions');
   });
 });

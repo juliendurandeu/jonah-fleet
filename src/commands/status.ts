@@ -81,6 +81,8 @@ export async function runStatus(options: StatusOptions = {}): Promise<void> {
           autoUpdate: manifest.autoUpdate,
           routines: manifest.routines,
           skills: manifest.skills,
+          models: manifest.models,
+          budgets: manifest.budgets,
           repositories: manifest.repositories || [],
           tokenUsage,
           drift: {
@@ -108,6 +110,38 @@ export async function runStatus(options: StatusOptions = {}): Promise<void> {
   console.log(pc.bold('\n  Configured Skills:'));
   for (const skill of manifest.skills) {
     console.log(`    - ${pc.cyan(skill)}`);
+  }
+
+  if (manifest.models && Object.keys(manifest.models).length > 0) {
+    console.log(pc.bold('\n  Model Profiles:'));
+    for (const [routine, model] of Object.entries(manifest.models)) {
+      if (model) {
+        console.log(`    - ${routine.padEnd(35)}: ${pc.cyan(model)}`);
+      }
+    }
+  }
+
+  if (manifest.budgets) {
+    console.log(pc.bold('\n  Configured Budgets:'));
+    if (manifest.budgets.weeklyTokens) {
+      console.log(`    - Weekly Token Budget: ${pc.cyan(formatTokens(manifest.budgets.weeklyTokens))}`);
+    }
+    if (manifest.budgets.timeoutMinutes && Object.keys(manifest.budgets.timeoutMinutes).length > 0) {
+      console.log(`    - Timeouts:`);
+      for (const [routine, timeout] of Object.entries(manifest.budgets.timeoutMinutes)) {
+        if (timeout !== undefined) {
+          console.log(`        • ${routine}: ${pc.cyan(timeout + 'm')}`);
+        }
+      }
+    }
+    if (manifest.budgets.maxIterations && Object.keys(manifest.budgets.maxIterations).length > 0) {
+      console.log(`    - Max Iterations:`);
+      for (const [routine, iter] of Object.entries(manifest.budgets.maxIterations)) {
+        if (iter !== undefined) {
+          console.log(`        • ${routine}: ${pc.cyan(String(iter))}`);
+        }
+      }
+    }
   }
 
   if (manifest.repositories && manifest.repositories.length > 0) {

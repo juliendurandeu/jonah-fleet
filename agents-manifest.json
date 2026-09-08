@@ -19,6 +19,28 @@
     "product-planning": false,
     "analytics-review": false
   },
+  "models": {
+    "default": "gemini-3.7-flash-high",
+    "issues-housekeeping": "gemini-3.7-flash",
+    "dependency-update-security-check": "gemini-3.7-flash"
+  },
+  "budgets": {
+    "weeklyTokens": 8750000,
+    "timeoutMinutes": {
+      "autowork": 60,
+      "peer-review": 55,
+      "optimizer": 35,
+      "issues-housekeeping": 40,
+      "dependency-update-security-check": 25
+    },
+    "maxIterations": {
+      "autowork": 65,
+      "peer-review": 40,
+      "optimizer": 30,
+      "issues-housekeeping": 30,
+      "dependency-update-security-check": 20
+    }
+  },
   "skills": [
     "tdd",
     "code-review",

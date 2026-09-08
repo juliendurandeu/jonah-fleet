@@ -74,4 +74,53 @@ describe('Manifest generation', () => {
     expect(manifest.dualExecution.cloudPriorities).toEqual(['P0', 'P1']);
     expect(manifest.dualExecution.cloudCatchupHours).toBe(48);
   });
+
+  it('includes default models and budgets in standard manifest', () => {
+    const manifest = createDefaultManifest('standard');
+    expect(manifest.models).toBeDefined();
+    expect(manifest.models?.default).toBe('gemini-3.7-flash-high');
+    expect(manifest.models?.['issues-housekeeping']).toBe('gemini-3.7-flash');
+    expect(manifest.budgets).toBeDefined();
+    expect(manifest.budgets?.weeklyTokens).toBe(8_750_000);
+    expect(manifest.budgets?.timeoutMinutes?.autowork).toBe(60);
+    expect(manifest.budgets?.maxIterations?.autowork).toBe(65);
+  });
+
+  it('resolves routine configuration with defaults when manifest is empty', async () => {
+    const { resolveRoutineConfig } = await import('../src/lib/manifest.js');
+    const config = resolveRoutineConfig(null, 'autowork');
+    expect(config.model).toBe('gemini-3.7-flash-high');
+    expect(config.timeoutMinutes).toBe(60);
+    expect(config.maxIterations).toBe(65);
+
+    const housekeeping = resolveRoutineConfig(null, 'issues-housekeeping');
+    expect(housekeeping.model).toBe('gemini-3.7-flash');
+    expect(housekeeping.timeoutMinutes).toBe(40);
+  });
+
+  it('resolves routine configuration with manifest overrides', async () => {
+    const { resolveRoutineConfig } = await import('../src/lib/manifest.js');
+    const manifest = createDefaultManifest('standard');
+    manifest.models = {
+      default: 'gemini-2.5-pro',
+      autowork: 'gemini-3.7-flash-thinking',
+    };
+    manifest.budgets = {
+      timeoutMinutes: {
+        autowork: 90,
+      },
+      maxIterations: {
+        autowork: 80,
+      },
+    };
+
+    const autoworkConfig = resolveRoutineConfig(manifest, 'autowork');
+    expect(autoworkConfig.model).toBe('gemini-3.7-flash-thinking');
+    expect(autoworkConfig.timeoutMinutes).toBe(90);
+    expect(autoworkConfig.maxIterations).toBe(80);
+
+    const peerReviewConfig = resolveRoutineConfig(manifest, 'peer-review');
+    expect(peerReviewConfig.model).toBe('gemini-2.5-pro'); // falls back to manifest.models.default
+  });
 });
+

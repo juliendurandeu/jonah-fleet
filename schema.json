@@ -36,6 +36,62 @@
       "items": { "type": "string" },
       "description": "List of core engineering skills to install/sync"
     },
+    "models": {
+      "type": "object",
+      "properties": {
+        "default": { "type": "string", "description": "Default model used across routines" },
+        "autowork": { "type": "string", "description": "Target model for autowork routine" },
+        "peer-review": { "type": "string", "description": "Target model for peer-review routine" },
+        "optimizer": { "type": "string", "description": "Target model for optimizer routine" },
+        "issues-housekeeping": { "type": "string", "description": "Target model for issues-housekeeping routine" },
+        "dependency-update-security-check": { "type": "string", "description": "Target model for dependency-update-security-check routine" },
+        "product-planning": { "type": "string", "description": "Target model for product-planning routine" },
+        "analytics-review": { "type": "string", "description": "Target model for analytics-review routine" }
+      },
+      "additionalProperties": { "type": "string" },
+      "description": "Per-routine model overrides (e.g. gemini-3.7-flash-high, gemini-3.7-flash)"
+    },
+    "budgets": {
+      "type": "object",
+      "properties": {
+        "weeklyTokens": {
+          "type": "number",
+          "description": "Weekly token budget limit across routines"
+        },
+        "maxIterations": {
+          "type": "object",
+          "properties": {
+            "default": { "type": "number" },
+            "autowork": { "type": "number" },
+            "peer-review": { "type": "number" },
+            "optimizer": { "type": "number" },
+            "issues-housekeeping": { "type": "number" },
+            "dependency-update-security-check": { "type": "number" },
+            "product-planning": { "type": "number" },
+            "analytics-review": { "type": "number" }
+          },
+          "additionalProperties": { "type": "number" },
+          "description": "Maximum tool call iterations per routine"
+        },
+        "timeoutMinutes": {
+          "type": "object",
+          "properties": {
+            "default": { "type": "number" },
+            "autowork": { "type": "number" },
+            "peer-review": { "type": "number" },
+            "optimizer": { "type": "number" },
+            "issues-housekeeping": { "type": "number" },
+            "dependency-update-security-check": { "type": "number" },
+            "product-planning": { "type": "number" },
+            "analytics-review": { "type": "number" }
+          },
+          "additionalProperties": { "type": "number" },
+          "description": "Workflow runner timeout in minutes per routine"
+        }
+      },
+      "additionalProperties": false,
+      "description": "Per-routine token, iteration, and timeout budgets"
+    },
     "schedules": {
       "type": "object",
       "properties": {

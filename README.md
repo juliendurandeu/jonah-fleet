@@ -146,7 +146,7 @@ Each target project contains an `agents-manifest.json` at its root:
 ```json
 {
   "$schema": "https://raw.githubusercontent.com/juliendurandeu/jonah-fleet/main/schema.json",
-  "version": "1.0.0",
+  "version": "1.6.0",
   "preset": "standard",
   "routines": {
     "autowork": true,
@@ -157,6 +157,28 @@ Each target project contains an `agents-manifest.json` at its root:
     "product-planning": false,
     "analytics-review": false
   },
+  "models": {
+    "default": "gemini-3.7-flash-high",
+    "issues-housekeeping": "gemini-3.7-flash",
+    "dependency-update-security-check": "gemini-3.7-flash"
+  },
+  "budgets": {
+    "weeklyTokens": 8750000,
+    "timeoutMinutes": {
+      "autowork": 60,
+      "peer-review": 55,
+      "optimizer": 35,
+      "issues-housekeeping": 40,
+      "dependency-update-security-check": 25
+    },
+    "maxIterations": {
+      "autowork": 65,
+      "peer-review": 40,
+      "optimizer": 30,
+      "issues-housekeeping": 30,
+      "dependency-update-security-check": 20
+    }
+  },
   "skills": [
     "tdd",
     "code-review",
@@ -165,7 +187,8 @@ Each target project contains an `agents-manifest.json` at its root:
     "diagnosing-bugs",
     "resolving-merge-conflicts",
     "writing-for-agents",
-    "triage"
+    "triage",
+    "grill-me"
   ],
   "autoUpdate": {
     "enabled": true,

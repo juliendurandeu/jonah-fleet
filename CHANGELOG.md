@@ -33,6 +33,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Updates all workflow templates and `.github/workflows/` with dynamic routine model and timeout resolution.
   - Enhances `jonah-fleet status` to render model profiles and configured budgets.
   - Adds unit test coverage in `tests/manifest.test.ts`.
+- **radar:** Expand Upstream Radar to track `huggingface/funes` alongside `openai/symphony` ([#70](https://github.com/juliendurandeu/jonah-fleet/issues/70)):
+  - Extended `.github/scripts/fetch-symphony-radar.js` into a multi-source ecosystem radar tracking Symphony (orchestration) and Funes (agent memory & session indexing).
+  - Added dedicated Agent Memory & Session Indexing evaluation matrix covering zero-LLM ingestion, pull-based MCP memory delivery, cross-session provenance, and multi-agent portability.
+  - Updated `symphony-radar.yml` workflow and `ORCHESTRATION.md` documentation.
+  - Added unit test suite `tests/radar.test.ts` and updated workflow validation tests.
 
 ## [Unreleased] - 2026-09-07
 

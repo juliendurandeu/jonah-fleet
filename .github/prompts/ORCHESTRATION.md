@@ -171,20 +171,26 @@ How the fleet guarantees continuous review throughput, recovers from transient A
 
 ---
 
-## Upstream Symphony Intel & Architectural Evaluation Framework
+## Upstream Symphony & Funes Intel & Architectural Evaluation Framework
 
-How changes and innovations from [openai/symphony](https://github.com/openai/symphony) are systematically audited and evaluated for incorporation into Jonah Fleet:
+How changes and innovations from upstream ecosystems—[openai/symphony](https://github.com/openai/symphony) for issue-tracker orchestration and [huggingface/funes](https://github.com/huggingface/funes) for agent memory & session indexing—are systematically audited and evaluated for incorporation into Jonah Fleet:
 
-1. **Automated Radar (`symphony-radar.yml`)**: A weekly scheduled workflow runs `.github/scripts/fetch-symphony-radar.js` to inspect upstream commits, specification updates (`SPEC.md`), and releases, generating an actionable digest issue in Jonah Fleet.
+1. **Automated Ecosystem Radar (`symphony-radar.yml`)**: A weekly scheduled workflow runs `.github/scripts/fetch-symphony-radar.js` to inspect upstream commits, specification updates (`SPEC.md`), and releases across `openai/symphony` (orchestration) and `huggingface/funes` (memory tooling), generating an actionable digest issue in Jonah Fleet.
 2. **The 4 Evaluation Layers**:
    - **Layer 1 (Zero-Daemon Invariant)**: Can the enhancement execute in ephemeral GitHub Actions and `agy` CLI sessions without requiring a 24/7 background server or persistent WebSocket?
    - **Layer 2 (Issue Tracker Abstraction)**: Does the pattern map cleanly to native GitHub Issues, labels, and PR checks without proprietary tracker dependencies?
    - **Layer 3 (Token & Cost Economy)**: Does the change optimize LLM spend within Jonah Fleet's 70% weekly token ceiling (~8.75M tokens)?
    - **Layer 4 (Multi-Repo Portability)**: Can the routine or skill be distributed via `agents-manifest.json` and `jonah-fleet sync` across any consumer repository?
-3. **Classification & Action Protocol**:
-   - **🟢 Category A (Adopt Directly)**: Security guardrails, claim lock invariants, reader/writer rules, prompt engineering optimizations.
-   - **🟡 Category B (Adapt to Actions/CLI)**: Dynamic orchestrator pacing, backpressure controls, multi-stage review checks.
-   - **🔴 Category C (Skip)**: Elixir/OTP supervision trees, BEAM memory tuning, proprietary runtime internals.
+3. **Agent Memory & Session Indexing Evaluation Dimensions (Funes Watch)**:
+   - **Zero-LLM Ingestion**: Deterministic parsing of agent session traces (`.jsonl`/Parquet) into LanceDB without spending LLM tokens from the weekly budget.
+   - **Pull-Based Memory Delivery**: Memory served strictly on demand via MCP (`recall`, `get`) to prevent prompt context bloat.
+   - **Cross-Session Provenance**: Verbatim turns and provenance retention instead of lossy summary drift.
+   - **Multi-Agent Portability**: Standardized trace ingestion across Antigravity CLI (`agy`), Claude Code, and Codex.
+4. **Classification & Action Protocol**:
+   - **🟢 Category A (Adopt Directly)**: Security guardrails, claim lock invariants, reader/writer rules, prompt engineering optimizations, deterministic zero-LLM indexing.
+   - **🟡 Category B (Adapt to Actions/CLI)**: Dynamic orchestrator pacing, backpressure controls, multi-stage review checks, pull-based memory MCP integrations.
+   - **🔴 Category C (Skip)**: Elixir/OTP supervision trees, BEAM memory tuning, proprietary runtime internals, always-loaded memory context dumps.
+
 
 ---
 

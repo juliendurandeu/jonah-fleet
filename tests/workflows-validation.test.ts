@@ -132,4 +132,35 @@ describe('Workflow Validation & Invariants', () => {
     expect(orchestrationDoc).toContain('Layer 1 (Zero-Daemon Invariant)');
     expect(orchestrationDoc).toContain('Agent Memory & Session Indexing Evaluation Dimensions');
   });
+
+  it('ensures trigger workflows define concurrency at the job level to prevent self-cancellation on skipped triggers', () => {
+    const triggerWorkflows = [
+      { file: 'trigger-review-routine.yml', job: 'trigger-routine' },
+      { file: 'trigger-autowork-on-bug.yml', job: 'fire-autowork' },
+      { file: 'trigger-autowork-on-merge.yml', job: 'fire-autowork' },
+    ];
+
+    for (const { file, job } of triggerWorkflows) {
+      const templatePath = path.join(workflowsDir, file);
+      const githubPath = path.join(process.cwd(), '.github/workflows', file);
+
+      for (const filePath of [templatePath, githubPath]) {
+        expect(fs.existsSync(filePath)).toBe(true);
+        const content = fs.readFileSync(filePath, 'utf8');
+
+        // Verify top-level concurrency is absent (it should not start at column 0)
+        expect(content).not.toMatch(/^concurrency:/m);
+
+        // Verify concurrency is nested under the specific job
+        expect(content).toContain(`  ${job}:`);
+        expect(content).toMatch(new RegExp(`  ${job}:[\\s\\S]*?    concurrency:[\\s\\S]*?      cancel-in-progress: true`));
+      }
+
+      // Ensure exact byte-for-byte 1:1 parity between template and .github workflow
+      const templateContent = fs.readFileSync(templatePath, 'utf8');
+      const githubContent = fs.readFileSync(githubPath, 'utf8');
+      expect(templateContent).toBe(githubContent);
+    }
+  });
 });
+

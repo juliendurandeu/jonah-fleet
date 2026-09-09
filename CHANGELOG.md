@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased] - 2026-09-09
 
 ### Fixed
+- **workflows:** Move `concurrency` from workflow root to job level across event-triggered routine workflows (`trigger-review-routine.yml`, `trigger-autowork-on-bug.yml`, `trigger-autowork-on-merge.yml`) ([#100](https://github.com/juliendurandeu/jonah-fleet/issues/100)). In GitHub Actions, workflow-level concurrency is evaluated before job `if` filters, causing skipped events (such as startup comments posted by the review routine itself, comments without review commands, non-matching issue labels, or closed unmerged PRs) to prematurely cancel in-flight routine executions.
 - **daemon:** Fix `ReferenceError: Cannot access 'tickerInterval' before initialization` on graceful stop (`q`) or SIGINT / SIGTERM during initial startup checks or routine executions by declaring interval and keyboard handles in outer scope before shutdown handlers.
 
 ### Added

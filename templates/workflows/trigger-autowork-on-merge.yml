@@ -4,16 +4,15 @@ on:
   pull_request:
     types: [closed]
 
-concurrency:
-  group: autowork-merge-pr-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
-
 jobs:
   fire-autowork:
     if: >-
       github.event.pull_request.merged == true &&
       github.event.pull_request.base.ref == 'main' &&
       github.event.pull_request.head.repo.full_name == github.repository
+    concurrency:
+      group: autowork-merge-pr-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     timeout-minutes: 35
     permissions:

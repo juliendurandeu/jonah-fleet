@@ -17,10 +17,6 @@ on:
   issue_comment:
     types: [created]
 
-concurrency:
-  group: review-routine-pr-${{ github.event.pull_request.number || github.event.issue.number || inputs.pr_number || 'scan' }}
-  cancel-in-progress: true
-
 jobs:
   trigger-routine:
     if: >-
@@ -42,6 +38,9 @@ jobs:
         contains(github.event.comment.body, '/peer-review') ||
         contains(github.event.comment.body, '/retrigger') ||
         contains(github.event.comment.body, '/re-review')))
+    concurrency:
+      group: review-routine-pr-${{ github.event.pull_request.number || github.event.issue.number || inputs.pr_number || 'scan' }}
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     timeout-minutes: 35
     permissions:

@@ -7,6 +7,7 @@ import { runContribute } from './commands/contribute.js';
 import { runTelemetry } from './commands/telemetry.js';
 import { runRoutineCommand } from './commands/run.js';
 import { runDaemonCommand } from './commands/daemon.js';
+import { runLabels } from './commands/labels.js';
 import { FLEET_VERSION } from './lib/presets.js';
 
 const program = new Command();
@@ -46,6 +47,18 @@ program
   });
 
 program
+  .command('labels [action]')
+  .description('Audit and prune unused repository labels while protecting fleet taxonomy')
+  .option('-d, --dry-run', 'Preview prunable labels without deleting them', false)
+  .option('-y, --yes', 'Confirm automatic deletion of prunable labels', false)
+  .option('-r, --repo <repo>', 'Target GitHub repository (defaults to current)')
+  .option('-j, --json', 'Output results as JSON', false)
+  .action(async (action, options) => {
+    const act = action === 'prune' || action === 'list' || action === 'audit' ? action : 'audit';
+    await runLabels(act, options);
+  });
+
+program
   .command('init')
   .description('Initialize Jonah Fleet configuration, routines, workflows, and skills in the current repo')
   .option('-p, --preset <preset>', 'Preset profile to install (minimal | standard | full)', 'standard')
@@ -54,6 +67,7 @@ program
   .option('--package-manager <pm>', 'Override package manager (npm, pnpm, yarn, bun, uv, poetry, cargo, go)')
   .option('--test-cmd <cmd>', 'Override test execution command')
   .option('--build-cmd <cmd>', 'Override build execution command')
+  .option('--prune-labels', 'Prune unused boilerplate labels on initialization', false)
   .option('--interactive', 'Force interactive prompts for stack configuration')
   .option('--no-interactive', 'Disable interactive prompts')
   .action(async (options) => {

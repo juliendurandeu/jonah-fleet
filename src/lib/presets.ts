@@ -75,6 +75,9 @@ export interface FleetManifest {
     weeklyTokenBudget?: number;
   };
   dualExecution?: DualExecutionConfig;
+  labels?: {
+    protected?: string[];
+  };
 }
 
 export const DEFAULT_ROUTINE_MODELS: Record<string, string> = {

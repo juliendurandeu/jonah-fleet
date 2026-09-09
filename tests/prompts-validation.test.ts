@@ -346,5 +346,14 @@ describe('Prompt Validation & Invariants', () => {
       }
     }
   });
+
+  it('validates issues-housekeeping.md delegates safe label pruning to jonah-fleet labels prune', () => {
+    const housekeepingPath = path.join(promptsDir, 'issues-housekeeping.md');
+    const content = fs.readFileSync(housekeepingPath, 'utf8');
+
+    expect(content).toContain('Label audit & safe prune');
+    expect(content).toContain('jonah-fleet labels prune');
+    expect(content).toMatch(/npx --yes jonah-fleet labels prune --yes/);
+  });
 });
 

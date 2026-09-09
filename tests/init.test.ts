@@ -54,5 +54,37 @@ describe('Init Command with Smart Stack Detection', () => {
     expect(agentsMd).toContain('pnpm test:unit');
     expect(agentsMd).toContain('pnpm build:prod');
   });
+
+  it('supports --prune-labels flag on initialization without erroring on local test repo', async () => {
+    fs.writeFileSync(
+      path.join(tempDir, 'package.json'),
+      JSON.stringify({ name: 'label-prune-app' })
+    );
+
+    const mockExecutor = async (args: string[]) => {
+      if (args[1] === 'graphql') {
+        return JSON.stringify({
+          data: {
+            repository: {
+              labels: {
+                nodes: [],
+                pageInfo: { hasNextPage: false, endCursor: null },
+              },
+            },
+          },
+        });
+      }
+      return '';
+    };
+
+    await runInit({
+      cwd: tempDir,
+      preset: 'standard',
+      pruneLabels: true,
+      executor: mockExecutor,
+    });
+
+    expect(fs.existsSync(path.join(tempDir, 'agents-manifest.json'))).toBe(true);
+  });
 });
 

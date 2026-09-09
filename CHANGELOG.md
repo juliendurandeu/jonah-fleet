@@ -27,6 +27,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased] - 2026-09-09
 
 ### Added
+- **daemon:** Rotating status-line tips and narrow-width terminal guardrails ([#90](https://github.com/juliendurandeu/jonah-fleet/issues/90)):
+  - Added smooth 4-second cycling through all 11 keybinding tips in the foreground daemon's idle status line to promote frictionless hotkey discoverability.
+  - Added paused status UX displaying `PAUSED` indicator and resume tips.
+  - Added narrow terminal viewport width guardrails using ANSI-aware truncation (`truncateAnsi`), clamping ticker lines to `columns - 2` and omitting tips when columns < 55 to prevent line wrapping or scrolling artifacts.
+  - Comprehensive unit test suites in `tests/daemon-keys.test.ts` and `tests/terminal-card.test.ts`.
 - **daemon:** Targeted execution prompts and runtime utility hotkeys ([#89](https://github.com/juliendurandeu/jonah-fleet/issues/89)):
   - Added targeted execution hotkeys: `R` (prompts for PR # and runs targeted peer-review) and `A` (prompts for Issue # and runs targeted autowork).
   - Pauses raw mode safely during targeted prompt input, validates numeric identifiers (`42`, `#42`, `PR #42`, `Issue #89`), and provides clean cancellation on Esc/empty Enter.

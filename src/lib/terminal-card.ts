@@ -44,6 +44,49 @@ export function stripAnsi(text: string): string {
 }
 
 /**
+ * Truncates an ANSI-formatted string to a maximum visual width without breaking escape sequences.
+ */
+export function truncateAnsi(text: string, maxWidth: number): string {
+  if (maxWidth <= 0) return '';
+  if (stripAnsi(text).length <= maxWidth) return text;
+
+  let visibleCount = 0;
+  let result = '';
+  let inAnsi = false;
+  let ansiBuffer = '';
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    if (char === '\x1b') {
+      inAnsi = true;
+      ansiBuffer = char;
+      continue;
+    }
+
+    if (inAnsi) {
+      ansiBuffer += char;
+      if (char === 'm') {
+        inAnsi = false;
+        result += ansiBuffer;
+        ansiBuffer = '';
+      }
+      continue;
+    }
+
+    if (visibleCount < maxWidth) {
+      result += char;
+      visibleCount++;
+    } else {
+      break;
+    }
+  }
+
+  // Ensure any open ANSI style is reset
+  result += '\x1b[0m';
+  return result;
+}
+
+/**
  * Wraps text into multiple lines bounded by maxWidth without cropping.
  */
 export function wrapText(text: string, maxWidth: number): string[] {

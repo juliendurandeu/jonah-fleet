@@ -13,6 +13,7 @@ import {
   printDaemonLogTail,
   inspectAndCleanWorktrees,
   printWorktreesInspection,
+  formatDaemonStatusLine,
 } from './daemon-keys.js';
 import pc from 'picocolors';
 
@@ -388,26 +389,16 @@ export async function runDaemonLoop(repoRoot: string, options: DaemonOptions = {
   const updateTicker = () => {
     if (isStopping || isWorking || options.verbose || !process.stderr.isTTY) return;
 
-    if (isPaused) {
-      const queueStr = pendingRoutine ? pc.cyan(` [Queued: ${pendingRoutine}]`) : '';
-      process.stderr.write(
-        `\r\x1b[K${pc.dim('[' + new Date().toLocaleTimeString() + ']')} ⏸️  ${pc.yellow('PAUSED · Press \'p\' to resume or hotkeys to trigger')}${queueStr}`
-      );
-      return;
-    }
+    const line = formatDaemonStatusLine({
+      now: Date.now(),
+      isPaused,
+      nextCheckTime: Math.min(nextReviewCheckTime, nextAutoworkCheckTime),
+      lastOpenPRCount,
+      pendingRoutine,
+      columns: process.stderr.columns,
+    });
 
-    const now = Date.now();
-    const nextCheck = Math.min(nextReviewCheckTime, nextAutoworkCheckTime);
-    const diffMs = Math.max(0, nextCheck - now);
-    const remainingSecs = Math.ceil(diffMs / 1000);
-    const mins = Math.floor(remainingSecs / 60);
-    const secs = remainingSecs % 60;
-    const timeStr = `${mins}m ${secs < 10 ? '0' : ''}${secs}s`;
-    const prStr = lastOpenPRCount !== undefined ? ` (${lastOpenPRCount} ready PRs)` : '';
-    const queueStr = pendingRoutine ? pc.cyan(` [Queued: ${pendingRoutine}]`) : '';
-    process.stderr.write(
-      `\r\x1b[K${pc.dim('[' + new Date().toLocaleTimeString() + ']')} 💤 ${pc.dim('Watchdog Idle · Next check in ' + timeStr + prStr)}${queueStr}`
-    );
+    process.stderr.write(`\r\x1b[K${line}`);
   };
 
   const handleStop = async () => {

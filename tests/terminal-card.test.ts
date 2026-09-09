@@ -13,6 +13,8 @@ import {
   renderSummaryCard,
   renderErrorCard,
   TerminalSpinner,
+  stripAnsi,
+  truncateAnsi,
 } from '../src/lib/terminal-card.js';
 
 describe('Terminal UI & Card Primitives', () => {
@@ -314,4 +316,19 @@ The build is completing. Continuing shortly.
       }).not.toThrow();
     });
   });
+
+  describe('stripAnsi & truncateAnsi', () => {
+    it('strips ANSI color codes accurately', () => {
+      const formatted = '\x1b[31mError:\x1b[39m \x1b[1mSomething went wrong\x1b[22m';
+      expect(stripAnsi(formatted)).toBe('Error: Something went wrong');
+    });
+
+    it('truncates ANSI string to maxWidth and resets open styles', () => {
+      const formatted = '\x1b[31mError:\x1b[39m \x1b[1mSomething went wrong\x1b[22m';
+      const truncated = truncateAnsi(formatted, 10);
+      expect(stripAnsi(truncated)).toBe('Error: Som');
+      expect(truncated.endsWith('\x1b[0m')).toBe(true);
+    });
+  });
 });
+

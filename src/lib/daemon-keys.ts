@@ -5,6 +5,7 @@ import path from 'node:path';
 import pc from 'picocolors';
 import { DaemonState } from './daemon.js';
 import { WorktreeInfo, listActiveWorktrees, cleanupStaleWorktrees } from './worktree.js';
+import { stripAnsi, truncateAnsi } from './terminal-card.js';
 
 export interface KeyboardControllerOptions {
   stdin?: NodeJS.ReadStream | EventEmitter;
@@ -408,3 +409,119 @@ export function printDaemonStatusSummary(options: DaemonStatusSummaryOptions): v
   }
   console.log('');
 }
+
+export const DAEMON_STATUS_TIPS: readonly string[] = [
+  "Tip: press 'r' to run review pass now",
+  "Tip: press 'a' to run autowork scan now",
+  "Tip: press 'R' to review a specific PR #",
+  "Tip: press 'A' to work a specific Issue #",
+  "Tip: press 'p' to pause/resume automatic checks",
+  "Tip: press 's' to view daemon status",
+  "Tip: press 'v' to toggle verbose streaming",
+  "Tip: press 'l' to view recent log tail",
+  "Tip: press 'w' to inspect/clean worktrees",
+  "Tip: press 'q' to stop daemon gracefully",
+  "Tip: press '?' for all keybindings",
+];
+
+export const DAEMON_PAUSED_TIPS: readonly string[] = [
+  "Tip: press 'p' to resume scheduled checks",
+  "Tip: press 'r' to run review pass now",
+  "Tip: press 'a' to run autowork scan now",
+  "Tip: press 'R' to review a specific PR #",
+  "Tip: press 'A' to work a specific Issue #",
+  "Tip: press 's' to view daemon status",
+  "Tip: press 'v' to toggle verbose streaming",
+  "Tip: press 'l' to view recent log tail",
+  "Tip: press 'w' to inspect/clean worktrees",
+  "Tip: press 'q' to stop daemon gracefully",
+  "Tip: press '?' for all keybindings",
+];
+
+export { truncateAnsi };
+
+/**
+ * Calculates the current tip index by dividing elapsed or current timestamp by rotation interval.
+ */
+export function getRotatingTipIndex(
+  nowMs: number = Date.now(),
+  intervalSeconds: number = 4,
+  totalTips: number = DAEMON_STATUS_TIPS.length
+): number {
+  if (totalTips <= 0) return 0;
+  const slot = Math.floor(nowMs / (intervalSeconds * 1000));
+  return ((slot % totalTips) + totalTips) % totalTips;
+}
+
+/**
+ * Retrieves the active rotating tip string for the given timestamp.
+ */
+export function getRotatingTip(
+  nowMs: number = Date.now(),
+  tips: readonly string[] = DAEMON_STATUS_TIPS,
+  intervalSeconds: number = 4
+): string {
+  if (!tips || tips.length === 0) return '';
+  const idx = getRotatingTipIndex(nowMs, intervalSeconds, tips.length);
+  return tips[idx];
+}
+
+export interface FormatDaemonStatusLineOptions {
+  now?: Date | number;
+  isPaused?: boolean;
+  nextCheckTime?: number;
+  lastOpenPRCount?: number;
+  pendingRoutine?: string | null;
+  columns?: number;
+  tipIndex?: number;
+  tips?: readonly string[];
+}
+
+/**
+ * Formats the single-line daemon idle/paused status ticker with rotating tips and viewport width clamping.
+ */
+export function formatDaemonStatusLine(options: FormatDaemonStatusLineOptions = {}): string {
+  const nowDate =
+    options.now instanceof Date
+      ? options.now
+      : typeof options.now === 'number'
+        ? new Date(options.now)
+        : new Date();
+  const nowMs = nowDate.getTime();
+  const timeString = nowDate.toLocaleTimeString();
+
+  const columns = options.columns !== undefined ? options.columns : (process.stderr.columns || 80);
+  const maxCols = Math.max(20, (columns || 80) - 2);
+  const includeTip = columns >= 55;
+
+  let core: string;
+  if (options.isPaused) {
+    const queueStr = options.pendingRoutine ? pc.cyan(` [Queued: ${options.pendingRoutine}]`) : '';
+    core = `${pc.dim('[' + timeString + ']')} ⏸️  ${pc.yellow('PAUSED')}${queueStr}`;
+  } else {
+    const nextCheck = options.nextCheckTime !== undefined ? options.nextCheckTime : nowMs;
+    const diffMs = Math.max(0, nextCheck - nowMs);
+    const remainingSecs = Math.ceil(diffMs / 1000);
+    const mins = Math.floor(remainingSecs / 60);
+    const secs = remainingSecs % 60;
+    const timeStr = `${mins}m ${secs < 10 ? '0' : ''}${secs}s`;
+    const prStr = options.lastOpenPRCount !== undefined ? ` (${options.lastOpenPRCount} ready PRs)` : '';
+    const queueStr = options.pendingRoutine ? pc.cyan(` [Queued: ${options.pendingRoutine}]`) : '';
+    core = `${pc.dim('[' + timeString + ']')} 💤 ${pc.dim('Watchdog Idle · Next check in ' + timeStr + prStr)}${queueStr}`;
+  }
+
+  if (!includeTip) {
+    return truncateAnsi(core, maxCols);
+  }
+
+  const tipsList = options.tips || (options.isPaused ? DAEMON_PAUSED_TIPS : DAEMON_STATUS_TIPS);
+  const tipIdx =
+    options.tipIndex !== undefined
+      ? options.tipIndex
+      : getRotatingTipIndex(nowMs, 4, tipsList.length);
+  const tipText = tipsList[((tipIdx % tipsList.length) + tipsList.length) % tipsList.length] || '';
+
+  const fullLine = `${core} ${pc.dim('·')} ${pc.dim(tipText)}`;
+  return truncateAnsi(fullLine, maxCols);
+}
+

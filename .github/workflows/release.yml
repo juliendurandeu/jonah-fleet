@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'v*'
+      - 'jonah-fleet-v*'
   workflow_dispatch:
 
 jobs:

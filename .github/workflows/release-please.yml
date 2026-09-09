@@ -34,34 +34,23 @@ jobs:
           token: ${{ steps.app-token.outputs.token || secrets.GH_PAT || github.token }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
-
-      - name: Checkout repository
-        if: ${{ steps.release.outputs.releases_created == 'true' }}
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        if: ${{ steps.release.outputs.releases_created == 'true' }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          registry-url: 'https://registry.npmjs.org'
-
-      - name: Upgrade npm
-        if: ${{ steps.release.outputs.releases_created == 'true' }}
-        run: npm install -g npm@latest
-
-      - name: Install dependencies
-        if: ${{ steps.release.outputs.releases_created == 'true' }}
-        run: npm ci
-
-      - name: Run test suite
-        if: ${{ steps.release.outputs.releases_created == 'true' }}
-        run: npm test
-
-      - name: Build package
-        if: ${{ steps.release.outputs.releases_created == 'true' }}
-        run: npm run build
-
-      - name: Publish to npm (Trusted Publishing / OIDC)
-        if: ${{ steps.release.outputs.releases_created == 'true' }}
-        run: npm publish --provenance --access public
+      - name: Enable auto-merge on Release PR
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GH_PAT || github.token }}
+        run: |
+          PR_NUMBER="${{ steps.release.outputs.pr && fromJson(steps.release.outputs.pr).number || '' }}"
+          if [ -z "$PR_NUMBER" ] || [ "$PR_NUMBER" = "null" ]; then
+            PR_NUMBER=$(gh pr list --search "head:release-please-- state:open" --json number --jq '.[0].number')
+          fi
+          if [ -n "$PR_NUMBER" ] && [ "$PR_NUMBER" != "null" ]; then
+            echo "Checking auto-merge status for release PR #$PR_NUMBER"
+            AUTO_MERGE=$(gh pr view "$PR_NUMBER" --json autoMergeRequest --jq '.autoMergeRequest')
+            if [ "$AUTO_MERGE" = "null" ] || [ -z "$AUTO_MERGE" ]; then
+              echo "Enabling auto-merge for release PR #$PR_NUMBER"
+              gh pr merge "$PR_NUMBER" --auto --squash
+            else
+              echo "Auto-merge is already enabled for release PR #$PR_NUMBER"
+            fi
+          else
+            echo "No open release PR found to auto-merge."
+          fi

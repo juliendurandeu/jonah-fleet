@@ -2,20 +2,20 @@
 
 ## Objective
 
-This routine runs in two modes, decided in Step 0. In **Scan mode** (a scheduled run, no issue named): converge on existing open work before starting anything new — priority order (1) address review comments on open PRs, (2) close issues whose PRs are merged, (3) only then pick a new issue. In **Targeted mode** (fired with a specific issue in the payload): work *that* issue as the run's objective, **ahead of** the convergence steps above — the fire exists to start its issue immediately, so an unrelated pending PR does not preempt it (Step 0.5); fall back to the Scan flow only if the target is ineligible. Either way, at most one issue may be **implemented** (code written, branch pushed) per run — the sole exception is batching up to 3 same-recipe slices of a single *umbrella* issue into one child issue + PR (step 12a); that batch is still one concern, not a second issue. Evaluating a candidate and finding it infeasible does not count as "working" it: in Scan mode, step 12's infeasible-continuation cap lets a run evaluate up to 3 candidates for feasibility before it must stop, so a single blocked issue can't consume an entire run without any other progress being attempted.
+This routine runs in two modes, decided in Step 0. In **Scan mode** (a scheduled run, no issue named): converge on existing open work before starting anything new — priority order (1) address review comments on open PRs, (2) close issues whose PRs are merged, (3) only then pick a new issue. In **Targeted mode** (fired with a specific issue in the payload): work _that_ issue as the run's objective, **ahead of** the convergence steps above — the fire exists to start its issue immediately, so an unrelated pending PR does not preempt it (Step 0.5); fall back to the Scan flow only if the target is ineligible. Either way, at most one issue may be **implemented** (code written, branch pushed) per run — the sole exception is batching up to 3 same-recipe slices of a single _umbrella_ issue into one child issue + PR (step 12a); that batch is still one concern, not a second issue. Evaluating a candidate and finding it infeasible does not count as "working" it: in Scan mode, step 12's infeasible-continuation cap lets a run evaluate up to 3 candidates for feasibility before it must stop, so a single blocked issue can't consume an entire run without any other progress being attempted.
 
 ## Definition of Done
 
-This routine runs in two modes (Step 0): **Targeted** (a fire named an issue) and **Scan** (scheduled / no issue named). In **Targeted mode**, the run is SUCCESS if you claimed and implemented the target issue to a pushed draft PR (or documented why it is infeasible and released the claim, or ended via step 13's **collision bail** — a competing open PR discovered immediately before opening yours: branch pushed, claim comment annotated, no unassign, no second PR) — or, when the target was *ineligible* (closed / has an open PR / claimed by a live run), you fell back to the Scan flow and met the Scan criteria below.
+This routine runs in two modes (Step 0): **Targeted** (a fire named an issue) and **Scan** (scheduled / no issue named). In **Targeted mode**, the run is SUCCESS if you claimed and implemented the target issue to a pushed draft PR (or documented why it is infeasible and released the claim, or ended via step 13's **collision bail** — a competing open PR discovered immediately before opening yours: branch pushed, claim comment annotated, no unassign, no second PR) — or, when the target was _ineligible_ (closed / has an open PR / claimed by a live run), you fell back to the Scan flow and met the Scan criteria below.
 
 In **Scan mode**, the run is SUCCESS only if ALL of these are true:
 
 - [ ] Checked all open PRs for unresolved or unaddressed review comments; if actionable findings were found, claimed the PR before writing fixes (see the Phase 1 PR Claim protocol), confirmed sole ownership, and pushed fixes
 - [ ] Closed any issues whose corresponding PRs are all merged
-- [ ] If no open PRs needed attention: picked the highest-priority *unclaimed* issue (P1 > P2 > P3); if it turned out to be already-done (step 10 — all its PRs merged), closed it and moved on to the next-priority candidate rather than stopping there; otherwise **claimed it before starting work** (see the Claim protocol), and either implemented a fix and **opened a draft pull request on GitHub via `gh pr create --draft`** or left a comment explaining why autonomous completion is blocked and released the claim, then repeated candidate selection for the next-priority issue per step 12's infeasible-continuation cap
+- [ ] If no open PRs needed attention: picked the highest-priority _unclaimed_ issue (P1 > P2 > P3); if it turned out to be already-done (step 10 — all its PRs merged), closed it and moved on to the next-priority candidate rather than stopping there; otherwise **claimed it before starting work** (see the Claim protocol), and either implemented a fix and **opened a draft pull request on GitHub via `gh pr create --draft`** or left a comment explaining why autonomous completion is blocked and released the claim, then repeated candidate selection for the next-priority issue per step 12's infeasible-continuation cap
 - [ ] If an issue was implemented: successfully opened a draft pull request on GitHub via `gh pr create --draft` referencing the issue (`Closes #N`) in its body, verified the PR exists (a returned PR URL is mandatory), updated the issue's `## Tasks` checkboxes (`- [ ]` → `- [x]`) for every deliverable the PR ships, marked the PR ready for review (`gh pr ready <PR>`), and executed step 15's in-session review wait (never stop at merely pushing the branch or editing the issue; a pushed branch with no open PR on GitHub is a fatal invariant violation and must be logged as FAILURE)
-- [ ] Did not open a new PR while any existing PR by this routine has unaddressed review comments (a finding you have replied to with a rationale counts as *addressed*, even if the thread is still technically unresolved) — **Targeted mode is exempt**
-- [ ] Never worked an issue or PR that was already actively claimed (assigned) by another live run, and confirmed sole ownership of the claim before writing any code — reclaiming a *stale* claim (a dead run's orphaned assignment, per step 10a / `ORCHESTRATION.md`) is permitted
+- [ ] Did not open a new PR while any existing PR by this routine has unaddressed review comments (a finding you have replied to with a rationale counts as _addressed_, even if the thread is still technically unresolved) — **Targeted mode is exempt**
+- [ ] Never worked an issue or PR that was already actively claimed (assigned) by another live run, and confirmed sole ownership of the claim before writing any code — reclaiming a _stale_ claim (a dead run's orphaned assignment, per step 10a / `ORCHESTRATION.md`) is permitted
 - [ ] If work was an umbrella slice/batch (step 12a): the child issue created for it carries the required Summary/Tasks/Why/Complexity template and exactly one type/size/priority label, and the `🧭 Decomposition plan` markers were left `🔍 in review` until the child PR merges
 
 If any criterion cannot be met, stop immediately and log FAILURE with the reason.
@@ -33,12 +33,12 @@ If any criterion cannot be met, stop immediately and log FAILURE with the reason
 ## Negative examples (DO NOT do these)
 
 - Do not address a subset of review findings and stop — handle ALL findings in one run before stopping or marking the PR as ready.
-- Do not mark a PR as ready for review without first re-fetching review threads *and PR-level comments* and confirming every finding matching step 2's trust & noise rules has been handled.
+- Do not mark a PR as ready for review without first re-fetching review threads _and PR-level comments_ and confirming every finding matching step 2's trust & noise rules has been handled.
 - Do not start addressing review findings on a PR before claiming it (both PR assignment AND claim comment).
 - Do not strand a PR in draft because you disagree with a finding — reply with your rationale, mark the PR ready, and let peer-review re-evaluate.
 - Do not push a branch and stop without running `gh pr create --draft` to actually open the pull request — a pushed branch with no open PR cannot be picked up by the peer-review routine.
 - Do not open a new PR if you already have 3+ open PRs — converge before creating more (**Scan mode only**; Targeted mode is exempt).
-- Do not *implement* multiple *unrelated* issues in a single run.
+- Do not _implement_ multiple _unrelated_ issues in a single run.
 - Do not close an issue just because it is old — only close if the work is done and PRs are merged.
 - Do not attempt an issue that requires environment secrets, manual testing, or external service setup — mark it as infeasible with a comment.
 - Do not start implementing an issue before claiming it (both assignment AND claim comment).
@@ -51,23 +51,26 @@ If any criterion cannot be met, stop immediately and log FAILURE with the reason
 ### Step 0: Determine Targeted vs Scan mode (before Phase 1)
 
 This routine runs in two modes, decided here before any other work:
-- **Targeted mode** — an environment variable `$ISSUE_NUMBER` (or explicit issue payload) names a target issue. Work *that* issue as the run's objective, **ahead of** Phase 1 convergence and the normal priority scan.
+
+- **Targeted mode** — an environment variable `$ISSUE_NUMBER` (or explicit issue payload) names a target issue. Work _that_ issue as the run's objective, **ahead of** Phase 1 convergence and the normal priority scan.
 - **Scan mode** — no issue is named (a scheduled cron run). Run Phase 1, then select an issue by priority in Phase 2.
 
 Check if `$ISSUE_NUMBER` environment variable is set (or scan invocation text for `#<number>` / `/issues/<number>`):
+
 - **Found one → Targeted mode.** Record it as this run's target issue and proceed to Step 0.5.
 - **None found → Scan mode.** Proceed as a scheduled run: Phase 1, then normal priority selection in Phase 2.
 
 ### Step 0.5: Targeted mode — work the target issue first (only when Step 0 found one)
 
 a. **Read the target issue and check eligibility.** Eligible = open, unassigned or reclaimable stale claim, no open PR (`Closes #N`), no unclosed inward blocking dependencies (`Blocked by #N` or `Depends on #N` where `#N` is open), and not carrying `needs-human` or `needs-design`.
-   - **Ineligible** → fall back to Phase 1 and run the normal Scan flow.
-b. **Eligible → claim, then implement.** Call `get_me` once to learn your own login (step 7), reclaim stale claim if applicable (step 10a), run Claim protocol (step 11), evaluate and implement per steps 12–13, open draft PR, and run in-session review wait (step 15).
+
+- **Ineligible** → fall back to Phase 1 and run the normal Scan flow.
+  b. **Eligible → claim, then implement.** Call `get_me` once to learn your own login (step 7), reclaim stale claim if applicable (step 10a), run Claim protocol (step 11), evaluate and implement per steps 12–13, open draft PR, and run in-session review wait (step 15).
 
 ### Phase 1: Converge on open work (Scan mode; skipped in Targeted mode)
 
 1. List all open PRs authored by this routine.
-1a. **PR Claim Protocol (Single-Flight PR Convergence)**:
+   1a. **PR Claim Protocol (Single-Flight PR Convergence)**:
    - For each open PR needing attention (bounced to draft with actionable findings, or open with unaddressed review comments):
    - **Check eligibility**: re-read candidate PR (`gh pr view <PR> --json assignees,comments`). Skip PRs currently assigned to another live runner or carrying an active claim comment posted within the last 2 hours (unless stale claim per `ORCHESTRATION.md`).
    - Call `get_me` once to learn your own login if not already known.
@@ -77,7 +80,7 @@ b. **Eligible → claim, then implement.** Call `get_me` once to learn your own 
    - **Confirm sole ownership**: fetch comments on the PR. Earliest `created_at` among competing claim comments in this round wins. If you lost the race, unassign yourself (`gh pr edit <PR> --remove-assignee <login>`), annotate your comment, and evaluate the next PR (or proceed to Phase 2 if none left).
 2. For the claimed PR, fetch ALL review threads and PR-level comments. Filter for actionable findings matching trust & noise rules (author login matching `get_me`, non-noise). Address every single one in this run — push fixes for actionable findings, reply to clarifying questions, and comment on deferred items.
 3. For PRs where you have addressed all findings:
-3a. **Pre-ready self-audit** (run before marking ready):
+   3a. **Pre-ready self-audit** (run before marking ready):
    - **Automated review passes**: run `/code-review` (evaluating along Standards in `AGENTS.md` and Spec in the issue's `## Tasks`) and security review over the diff. Fix what they flag.
    - **Repository conventions scan**: read and verify all rules and conventions specified in `AGENTS.md` (or `CLAUDE.md`/`GEMINI.md`), project-level skills in `.agents/skills/`, and project documentation.
    - **Design System & Viewport Pre-flight** (for frontend/UI diffs): self-audit diffs against design tokens (no arbitrary class overrides), WCAG AA 4.5:1 contrast ratios on dark/light surfaces, single primary CTA hierarchy per screen, and mobile viewport crowding (avoid stacked nudges/banners above the fold at ~390px).
@@ -85,12 +88,17 @@ b. **Eligible → claim, then implement.** Call `get_me` once to learn your own 
    - **Build & type-check verification**: run the repository's test, type-check, and lint commands from `AGENTS.md` (e.g. `npm test`, `npm run type-check`, `npm run lint`, `pytest`, `cargo test`). Confirm zero errors and zero test failures.
    - **Clean-merge gate**: verify `git merge-tree origin/main HEAD` reports no conflicts.
    - **Release claim on ready**: mark the PR ready (`gh pr ready <PR>`) and unassign yourself (`gh pr edit <PR> --remove-assignee <login>`) so Peer Review can evaluate without holding stale agent reservation locks.
-   Only mark the PR ready after passing every check above.
-3b. **Ping-pong cap**: If this same PR has bounced between draft and ready 3 or more times over the same substantive finding, stop re-marking it ready. Post a comment summarizing the disagreement for human resolution and leave the PR in draft.
-3c. **Orphaned Ready PR Recovery**: If an open PR authored by this routine is `ready_for_review`, has passing CI, no unaddressed review comments, and has received no review activity for over 2 hours (e.g. because peer review crashed or encountered quota limits), kickstart the review routine by posting `/review` comment or toggling draft and ready (`gh pr ready <PR> --undo && gh pr ready <PR>`).
+     Only mark the PR ready after passing every check above.
+     3b. **Ping-pong cap**: If this same PR has bounced between draft and ready 3 or more times over the same substantive finding, stop re-marking it ready. Post a comment summarizing the disagreement for human resolution and leave the PR in draft.
+     3c. **Orphaned Ready PR Recovery**: If an open PR authored by this routine is `ready_for_review`, has passing CI, no unaddressed review comments, and has received no review activity for over 2 hours (e.g. because peer review crashed or encountered quota limits), kickstart the review routine by posting `/review` comment or toggling draft and ready (`gh pr ready <PR> --undo && gh pr ready <PR>`).
    - **Passing CI Verification Gate**: Verify via `gh pr view <PR> --json statusCheckRollup,mergeStateStatus` that all required and existing checks have completed with `conclusion: "SUCCESS"` and `mergeStateStatus` is `CLEAN` (neither `UNSTABLE`, `BLOCKED`, nor `DIRTY`).
    - **Unapproved/Pending Workflow Invariant**: NEVER post `/review` or toggle draft state if checks are in-progress, failing, or awaiting approval (`conclusion: "ACTION_REQUIRED"`). Doing so creates an infinite comment storm while workflows remain paused awaiting human permissions.
-4. Check open issues that have linked merged PRs — close them.
+4. **Check open issues with merged PRs / work done — close them**:
+   - For open issues, check if recent git history or merged PRs reference the issue (e.g. `git log -n 50 --grep="#<ISSUE_NUMBER>"` or `gh pr list --state merged --search "<ISSUE_NUMBER>" --limit 5`).
+   - If a merged PR or commit on `main` resolved the issue, close it immediately:
+     ```bash
+     gh issue close <ISSUE_NUMBER> --comment "Closed via merged PR #<PR_NUMBER> (found in git history)."
+     ```
 
 5. If any PR was updated in this phase, STOP — run is SUCCESS.
 
@@ -107,14 +115,14 @@ b. **Eligible → claim, then implement.** Call `get_me` once to learn your own 
      - If running in **Local Agent** (`$LOCAL_AGENT`): Scan mode selects across all priorities (P0 → P1 → P2 → P3) without time gating, prioritizing active local backlog consumption.
    - Skip assigned issues (unless stale claim per `ORCHESTRATION.md`), issues with open PRs, issues with unclosed blocking dependencies (`Blocked by #N` / `Depends on #N`), issues labeled `needs-human`, `needs-design`, or `needs-info`, and issues under cross-run cooldown.
 9. If no eligible candidate exists, STOP — run is SUCCESS with "No unclaimed work available".
-10. If the candidate should be closed already (work done, PRs merged), close it and return to step 8.
-10a. **Stale-claim reclamation:** If candidate is a stale claim per `ORCHESTRATION.md`, re-read immediately before writing, unassign the dead owner, post reclamation comment, and proceed to claim.
+10. If the candidate should be closed already (work done, merged PR found in git history or via `gh pr list --state merged --search "<ISSUE_NUMBER>"`), close it immediately (`gh issue close <ISSUE_NUMBER> --comment "Closed: work already merged in PR #<PR_NUMBER>."`) and return to step 8.
+    10a. **Stale-claim reclamation:** If candidate is a stale claim per `ORCHESTRATION.md`, re-read immediately before writing, unassign the dead owner, post reclamation comment, and proceed to claim.
 11. **Claim protocol:**
     a. Re-read candidate issue immediately before claiming (`issue_read`). If assigned, abort and pick next candidate.
     b. Claim atomically: assign yourself (`login` from step 7) AND post claim comment:
-       - In **Cloud Actions**: `🔒 Claimed by autowork run {run_url} {timestamp}`
-       - In **Local Agent**: `🔒 Claimed by local autowork session (host: {hostname}) {timestamp}`
-    c. Confirm sole ownership by counting `🔒 Claimed by autowork run` / `🔒 Claimed by local autowork session` comments. Earliest `created_at` wins. If you lost the race, leave assignee as is, annotate your comment, and pick next candidate.
+    - In **Cloud Actions**: `🔒 Claimed by autowork run {run_url} {timestamp}`
+    - In **Local Agent**: `🔒 Claimed by local autowork session (host: {hostname}) {timestamp}`
+      c. Confirm sole ownership by counting `🔒 Claimed by autowork run` / `🔒 Claimed by local autowork session` comments. Earliest `created_at` wins. If you lost the race, leave assignee as is, annotate your comment, and pick next candidate.
 12. Evaluate whether the claimed issue can be completed autonomously:
     - Confirm your `🔒` claim comment is present on the issue.
     - Read the issue description, linked code, and comment thread.
@@ -127,7 +135,7 @@ b. **Eligible → claim, then implement.** Call `get_me` once to learn your own 
       - Select the next candidate (evaluating ambiguous issues counts toward step 12's infeasible-continuation cap).
     - **Intent vs. Defect Guardrail**: When investigating issues related to low conversion, zero-click events, or underperforming features: verify whether the issue is a software defect or a lack of user intent. If data indicates the root cause is **lack of user intent** (e.g. button is rendered above fold and functions correctly when clicked, but user interaction rate is <2%) rather than a software defect, do NOT fall into the **telemetry rabbit hole** (adding elaborate fallback telemetry, downstream error handling, or defensive rendering). Categorize the issue as a **product/UX question** (`needs-design` / `roadmap/*`), comment explaining the lack of user intent, release the claim (unassign), and select the next candidate.
     - If infeasible: comment explaining blocker, release claim (unassign), and select next candidate (up to 3 infeasible evaluations per run). If permanent blocker on 2nd strike, apply `needs-human` label and tag repo owner.
-12a. **Umbrella-issue handoff + batching:** If candidate is an umbrella epic:
+      12a. **Umbrella-issue handoff + batching:** If candidate is an umbrella epic:
     - Read `🧭 Decomposition plan` comment (or create if first run).
     - Pick next slice(s), batching up to 3 same-recipe slices into one child issue + PR.
     - Create and claim child issue first, then update plan marker to `🚧 in progress — child #M`, release umbrella claim, and implement against child.
@@ -139,6 +147,7 @@ b. **Eligible → claim, then implement.** Call `get_me` once to learn your own 
     - Open draft PR via `gh pr create --draft --head <branch> --base main --title "<title>" --body "<body referencing Closes #N>"`.
     - **PR Priority Label Mirroring**: If the issue carried a priority label (`priority/P0`, `priority/P1`, `priority/P2`, `priority/P3`), add the identical priority label to the PR (`gh pr edit <PR> --add-label "<label>"` or via `--label` in create) so downstream review workflows can filter triggers immediately.
     - Verify PR URL returned. Update issue `## Tasks` checkboxes.
+    - **Issue Cross-Reference Comment Guardrail**: Post an explicit comment on the tracking issue referencing the newly created PR (`gh issue comment <ISSUE_NUMBER> --body "Work in progress in PR #<PR_NUMBER>."`). This guarantees an unambiguous, permanent link on the issue timeline even when GitHub's native UI link is suppressed for bot draft PRs.
     - **Warm Context Assignment**: Assign yourself to the newly opened PR (`gh pr edit <PR> --add-assignee <login>`) to hold the reservation across Step 15's in-session review wait so parallel Scan routines recognise the PR as actively held by a live session.
     - Mark PR ready (`gh pr ready <PR>`).
 14. If run aborts before opening PR, release claim (unassign).
@@ -151,12 +160,14 @@ b. **Eligible → claim, then implement.** Call `get_me` once to learn your own 
 ## Logging
 
 After completing (SUCCESS or FAILURE), write a log file to `.github/prompts/logs/autowork/{timestamp}.md` following the schema in `.github/prompts/logs/_template.md`. Include:
+
 - The prompt SHA (run `git rev-parse --short HEAD:.github/prompts/autowork.md`)
 - Every Definition of Done criterion with YES/NO and evidence
 - Full execution trace with tool calls
 - If FAILURE: root cause, category, and suggested fix
 
 **Log Delivery Protocol & Invariants**:
+
 - **Negative Rule**: NEVER commit or push run logs to a feature branch or open PR branch. Doing so emits a `pull_request: synchronize` event under bot credentials, triggering GitHub Actions workflow approval gates (`action_required`) that stall CI.
 - **Mandatory `[skip ci]`**: Always append `[skip ci]` to any log commit message.
 - **Direct Push to `main`**: Commit the log file directly to `main` and push — explicitly permitted for files under `.github/prompts/logs/**`:
@@ -168,4 +179,3 @@ After completing (SUCCESS or FAILURE), write a log file to `.github/prompts/logs
   git push origin main
   ```
   Follow the Log delivery fallback in `ORCHESTRATION.md` if direct push fails.
-

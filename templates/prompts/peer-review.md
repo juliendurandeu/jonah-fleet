@@ -8,7 +8,7 @@ Review a pull request (in Targeted mode for a specific `$PR_NUMBER`, or in Scan 
 
 Before reading further, before any tool call, and before deciding the mode, check the environment variable `$PR_NUMBER`.
 
-- **$PR_NUMBER is set → Targeted mode.** The value of `$PR_NUMBER` is your target PR. You may also check `$PR_URL`. Skip all selection logic.
+- **$PR_NUMBER is set → Targeted mode.** The value of `$PR_NUMBER`is your target PR. You may also check`$PR_URL`. Skip all selection logic.
 - **$PR_NUMBER is not set → Scan mode.** Only then select a PR by priority.
 
 **Targeted mode is sticky: it can never fall back to Scan mode.** Once the invocation contains a PR reference, you must review exactly that PR. If you cannot act on it (closed/merged/missing), STOP and log FAILURE.
@@ -19,7 +19,7 @@ The run is SUCCESS only if ALL of these are true:
 
 - [ ] Identified the target PR: if one was named in the invocation, reviewed exactly that PR; otherwise listed open PRs and selected one by priority
 - [ ] Ran the code-review pass (`/code-review` and security pass), and posted findings as inline review comments
-- [ ] Took exactly one final action: squash-merged (if PR is good, CI green and present; executed Autonomous Issue Synthesis if unlinked) OR posted findings and **converted the PR back to draft** (`gh pr ready <N> --undo`) for author/autowork in-session fixes OR, if round cap reached at round 5 with blocking findings, converted to draft and escalated to human
+- [ ] Took exactly one final action: squash-merged (if PR is good, CI green and present; executed Autonomous Issue Synthesis if unlinked; closed tracking issue explicitly if referenced) OR posted findings and **converted the PR back to draft** (`gh pr ready <N> --undo`) for author/autowork in-session fixes OR, if round cap reached at round 5 with blocking findings, converted to draft and escalated to human
 - [ ] If merging: captured deferred non-blocking findings per materiality bar (filed follow-up issues for material ones, batched or dropped immaterial ones)
 - [ ] If in Scan mode and no eligible PRs exist, logged SUCCESS with "No PRs to review"
 
@@ -37,8 +37,9 @@ If any criterion cannot be met, stop immediately and log FAILURE with the reason
 ## Final action: merge or bounce to draft
 
 Every review ends in exactly one of two states:
+
 - **Merge** — only if PR is good, CI is green and verified on the head commit. If the PR does not reference a tracked issue (`Closes #N`), execute Autonomous Issue Synthesis prior to merge.
-  - Sequence: (1) if unlinked, synthesize tracking issue (`gh issue create`) and link to PR (`gh pr edit`), (2) squash-merge, (3) submit held review comments, (4) file follow-up issues for deferred material findings.
+  - Sequence: (1) if unlinked, synthesize tracking issue (`gh issue create`) and link to PR (`gh pr edit`), (2) squash-merge (`gh pr merge <N> --squash --delete-branch`), (3) explicitly close tracking issue if referenced (`gh issue close <ISSUE_NUMBER>`), (4) submit held review comments, (5) file follow-up issues for deferred material findings.
   - Immaterial findings (style/preference) default to dying in the review thread or getting batched.
   - Mechanical doc fixes (missing changelog line, doc typo in diff) can be committed directly to `main` after squash-merge.
 - **Bounce to draft** — if any **blocking** finding remains (correctness bug, security flaw, failing/missing CI, broken contract):
@@ -63,6 +64,7 @@ Every review ends in exactly one of two states:
 ### Step 0: Determine the target PR (do this FIRST)
 
 Check if `$PR_NUMBER` is set:
+
 - **$PR_NUMBER is set → Targeted mode.** Review that exact PR. Skip selection steps 1–2.
 - **$PR_NUMBER is not set → Scan mode.** Proceed to steps 1–2.
 
@@ -98,12 +100,14 @@ Check if `$PR_NUMBER` is set:
 ### Step 5: Classify Findings & Make Decision
 
 Classify each finding:
+
 - **Blocking**: Broken logic, security hole, data loss, regression, broken tests, missing deliverable from the issue/PR specification.
 - **Non-blocking**: Minor refactor, style preference, performance micro-optimization, missing `Closes #N` on contributor PRs with self-contained descriptions.
 
 ### Step 5.5: Autonomous Issue Synthesis (for unlinked PRs)
 
 If the PR is clean and approved for merge, but lacks a `Closes #N` tracking link:
+
 1. Synthesize a retroactive tracking issue on GitHub:
    ```bash
    gh issue create --title "<PR Title>" --body "Tracked retroactively from external pull request #<PR_NUMBER>.\n\n## Deliverables & Context\n<PR Description>\n\n_Synthesized autonomously by Jonah Fleet Peer Review_"
@@ -121,7 +125,12 @@ If the PR is clean and approved for merge, but lacks a `Closes #N` tracking link
   - If `N >= 5`: Convert PR to draft, post summary comment escalating to repo maintainer, and apply `needs-human` label.
 - **If Clean (or only Non-blocking findings)**:
   - If PR lacks `Closes #N`, execute Autonomous Issue Synthesis (Step 5.5).
+  - Extract the tracking issue number `$ISSUE_NUMBER` from the PR description or title (e.g. `Closes #<N>`, `Fixes #<N>`, `Resolves #<N>`).
   - Squash-merge the PR: `gh pr merge <N> --squash --delete-branch`.
+  - **Explicit Tracking Issue Closure Guardrail**: If a tracking issue was referenced (`$ISSUE_NUMBER`), explicitly close it immediately after merge rather than relying solely on GitHub's native keyword parser (which often fails to trigger on bot-merged squash commits or draft PRs):
+    ```bash
+    gh issue close "$ISSUE_NUMBER" --comment "Closed via PR #<N> (merged into main)."
+    ```
   - Submit held review comments.
   - File follow-up issues for material non-blocking findings.
   - If mechanical doc fixes are needed, commit directly to `main`.
@@ -129,6 +138,7 @@ If the PR is clean and approved for merge, but lacks a `Closes #N` tracking link
 ## Logging
 
 After completing (SUCCESS or FAILURE), write a log file to `.github/prompts/logs/peer-review/{timestamp}.md` following the schema in `.github/prompts/logs/_template.md`. Include:
+
 - Prompt SHA
 - Target PR number and decision (MERGE / BOUNCE / ESCALATE)
 - Execution trace and findings summary

@@ -13,6 +13,7 @@ import {
   renderSummaryCard,
   renderErrorCard,
   TerminalSpinner,
+  formatActionDescription,
   stripAnsi,
   truncateAnsi,
 } from '../src/lib/terminal-card.js';
@@ -306,6 +307,78 @@ The build is completing. Continuing shortly.
     });
   });
 
+  describe('formatActionDescription', () => {
+    it('formats run_command for test runners', () => {
+      expect(formatActionDescription('run_command', { CommandLine: 'npx vitest run' })).toBe('Running vitest');
+      expect(formatActionDescription('run_command', { CommandLine: 'npm test' })).toBe('Running test suite');
+      expect(formatActionDescription('run_command', { CommandLine: 'npm run type-check' })).toBe('Running TypeScript type checks');
+      expect(formatActionDescription('run_command', { CommandLine: 'npm run lint' })).toBe('Running codebase linter');
+      expect(formatActionDescription('run_command', { CommandLine: 'npm run build' })).toBe('Running production build');
+    });
+
+    it('formats run_command for GitHub CLI PR commands', () => {
+      expect(formatActionDescription('run_command', { CommandLine: 'gh pr list --state open' })).toBe('Listing open PRs (gh pr list)');
+      expect(formatActionDescription('run_command', { CommandLine: 'gh pr view 42 --json title' })).toBe('Viewing PR #42');
+      expect(formatActionDescription('run_command', { CommandLine: 'gh pr merge 42 --squash' })).toBe('Squash-merging PR #42');
+      expect(formatActionDescription('run_command', { CommandLine: 'gh pr edit 42 --add-assignee user' })).toBe('Updating PR #42');
+      expect(formatActionDescription('run_command', { CommandLine: 'gh pr ready 42' })).toBe('Marking PR #42 ready for review');
+      expect(formatActionDescription('run_command', { CommandLine: 'gh pr create --draft --title "feat: xyz"' })).toBe('Creating pull request');
+    });
+
+    it('formats run_command for GitHub CLI issue commands', () => {
+      expect(formatActionDescription('run_command', { CommandLine: 'gh issue list --state open' })).toBe('Listing open issues (gh issue list)');
+      expect(formatActionDescription('run_command', { CommandLine: 'gh issue view 96 --json title' })).toBe('Viewing issue #96');
+      expect(formatActionDescription('run_command', { CommandLine: 'gh issue edit 96 --add-assignee user' })).toBe('Updating issue #96');
+      expect(formatActionDescription('run_command', { CommandLine: 'gh issue comment 96 --body "claim"' })).toBe('Commenting on issue #96');
+    });
+
+    it('formats run_command for git operations', () => {
+      expect(formatActionDescription('run_command', { CommandLine: 'git checkout -b feat/stream-events' })).toBe('Git: Checking out branch');
+      expect(formatActionDescription('run_command', { CommandLine: 'git status' })).toBe('Git: Checking status');
+      expect(formatActionDescription('run_command', { CommandLine: 'git diff origin/main' })).toBe('Git: Inspecting diff');
+      expect(formatActionDescription('run_command', { CommandLine: 'git commit -m "feat: new feature"' })).toBe('Git: Committing changes');
+      expect(formatActionDescription('run_command', { CommandLine: 'git push origin main' })).toBe('Git: Pushing branch');
+    });
+
+    it('formats run_command fallback for generic commands', () => {
+      expect(formatActionDescription('run_command', { CommandLine: 'cargo check --all-targets' })).toBe('Running cargo check --all-targets');
+      expect(formatActionDescription('run_command', {})).toBe('Running command');
+      expect(formatActionDescription('run_command', undefined)).toBe('Running command');
+    });
+
+    it('formats view_file with basename extraction', () => {
+      expect(formatActionDescription('view_file', { AbsolutePath: '/home/user/repo/src/lib/runner.ts' })).toBe('Reading runner.ts');
+      expect(formatActionDescription('view_file', { TargetFile: 'templates/prompts/autowork.md' })).toBe('Reading autowork.md');
+      expect(formatActionDescription('view_file', {})).toBe('Reading file');
+    });
+
+    it('formats replace_file_content and write_to_file with basename extraction', () => {
+      expect(formatActionDescription('replace_file_content', { TargetFile: '/home/user/repo/src/lib/terminal-card.ts' })).toBe('Editing terminal-card.ts');
+      expect(formatActionDescription('write_to_file', { TargetFile: 'src/index.ts' })).toBe('Editing index.ts');
+      expect(formatActionDescription('replace_file_content', {})).toBe('Editing file');
+    });
+
+    it('formats grep_search and find_by_name', () => {
+      expect(formatActionDescription('grep_search', { Query: 'stream-json' })).toBe('Searching codebase for "stream-json"');
+      expect(formatActionDescription('grep_search', {})).toBe('Searching codebase');
+      expect(formatActionDescription('find_by_name', { Pattern: '*.ts' })).toBe('Finding files matching "*.ts"');
+      expect(formatActionDescription('find_by_name', {})).toBe('Finding files');
+    });
+
+    it('formats list_dir and invoke_subagent', () => {
+      expect(formatActionDescription('list_dir', { DirectoryPath: '/home/user/repo/src/lib' })).toBe('Listing directory lib');
+      expect(formatActionDescription('list_dir', {})).toBe('Listing directory');
+      expect(formatActionDescription('invoke_subagent', { Subagents: [{ Role: 'Codebase Researcher' }] })).toBe('Running subagent: Codebase Researcher');
+      expect(formatActionDescription('invoke_subagent', { Role: 'Spec Reviewer' })).toBe('Running subagent: Spec Reviewer');
+      expect(formatActionDescription('invoke_subagent', {})).toBe('Running subagent');
+    });
+
+    it('handles fallback for custom or unknown tools', () => {
+      expect(formatActionDescription('ask_question', { prompt: 'Choose option' })).toBe('Tool: ask_question');
+      expect(formatActionDescription('custom_tool')).toBe('Tool: custom_tool');
+    });
+  });
+
   describe('TerminalSpinner', () => {
     it('starts, updates, and stops safely', () => {
       const spinner = new TerminalSpinner();
@@ -314,6 +387,14 @@ The build is completing. Continuing shortly.
         spinner.update('Running tests...');
         spinner.stop();
       }).not.toThrow();
+    });
+
+    it('formats spinner output bounded by terminal columns without overflow', () => {
+      const spinner = new TerminalSpinner();
+      const longMessage = 'PR #96: Searching codebase for "very long query string that exceeds normal terminal width and should be safely truncated"';
+      const formatted = spinner.formatLine(longMessage, 60);
+      expect(stripAnsi(formatted).length).toBeLessThanOrEqual(60);
+      expect(formatted).toContain('PR #96:');
     });
   });
 

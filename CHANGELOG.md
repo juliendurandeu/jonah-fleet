@@ -30,6 +30,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **daemon:** Fix `ReferenceError: Cannot access 'tickerInterval' before initialization` on graceful stop (`q`) or SIGINT / SIGTERM during initial startup checks or routine executions by declaring interval and keyboard handles in outer scope before shutdown handlers.
 
 ### Added
+- **runner:** Stream real-time granular activity to foreground daemon spinner ([#96](https://github.com/juliendurandeu/jonah-fleet/issues/96)):
+  - Updated agent invocation to run Antigravity CLI with `--output-format stream-json`.
+  - Added line-buffered stream-json event parser in `src/lib/runner.ts` handling `step_update`, `tool`, `agent_response`, and `result` events.
+  - Implemented `formatActionDescription` in `src/lib/terminal-card.ts` for readable tool verbs (`run_command`, `view_file`, `replace_file_content`, `grep_search`, `invoke_subagent`, etc.).
+  - Added terminal column width bounds to `TerminalSpinner` to prevent line wrapping on long commands and window resizing.
+  - Enhanced verbose mode with formatted, human-readable timestamped event streams.
+  - Preserved raw stream-json in `.jonah-fleet/daemon.log` and ensured summary card extracts final response and tokens from `result` event.
 - **daemon:** Rotating status-line tips and narrow-width terminal guardrails ([#90](https://github.com/juliendurandeu/jonah-fleet/issues/90)):
   - Added smooth 4-second cycling through all 11 keybinding tips in the foreground daemon's idle status line to promote frictionless hotkey discoverability.
   - Added paused status UX displaying `PAUSED` indicator and resume tips.

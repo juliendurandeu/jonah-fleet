@@ -407,6 +407,129 @@ export function detectClaimedPR(chunk: string): string | null {
 }
 
 /**
+ * Maps granular agent tool invocations to clean, human-friendly action descriptions for terminal display.
+ */
+export function formatActionDescription(toolName: string, params?: Record<string, any>): string {
+  const name = toolName || 'unknown';
+
+  if (name === 'run_command') {
+    const rawCmd = (params?.CommandLine || params?.command || params?.cmd || '').trim();
+    if (!rawCmd) return 'Running command';
+
+    // Test runners & checks
+    if (/\b(?:vitest|jest)\b/i.test(rawCmd)) return 'Running vitest';
+    if (/\bnpm\s+test\b|\bcargo\s+test\b|\bpytest\b/i.test(rawCmd)) return 'Running test suite';
+    if (/type-check|\btsc\b/i.test(rawCmd)) return 'Running TypeScript type checks';
+    if (/\blint\b|\beslint\b/i.test(rawCmd)) return 'Running codebase linter';
+    if (/\bbuild\b|\btsup\b|\bnext\s+build\b/i.test(rawCmd)) return 'Running production build';
+
+    // GitHub CLI PR operations
+    if (/gh\s+pr\s+list/i.test(rawCmd)) return 'Listing open PRs (gh pr list)';
+    const prMergeMatch = rawCmd.match(/gh\s+pr\s+merge(?:\s+(\d+))?/i);
+    if (prMergeMatch) {
+      return prMergeMatch[1] ? `Squash-merging PR #${prMergeMatch[1]}` : 'Squash-merging pull request';
+    }
+    const prViewMatch = rawCmd.match(/gh\s+pr\s+view(?:\s+(\d+))?/i);
+    if (prViewMatch) {
+      return prViewMatch[1] ? `Viewing PR #${prViewMatch[1]}` : 'Viewing pull request';
+    }
+    const prEditMatch = rawCmd.match(/gh\s+pr\s+edit(?:\s+(\d+))?/i);
+    if (prEditMatch) {
+      return prEditMatch[1] ? `Updating PR #${prEditMatch[1]}` : 'Updating pull request';
+    }
+    const prReadyMatch = rawCmd.match(/gh\s+pr\s+ready(?:\s+(\d+))?/i);
+    if (prReadyMatch) {
+      return prReadyMatch[1] ? `Marking PR #${prReadyMatch[1]} ready for review` : 'Marking PR ready for review';
+    }
+    if (/gh\s+pr\s+create/i.test(rawCmd)) return 'Creating pull request';
+
+    // GitHub CLI issue operations
+    if (/gh\s+issue\s+list/i.test(rawCmd)) return 'Listing open issues (gh issue list)';
+    const issueViewMatch = rawCmd.match(/gh\s+issue\s+view(?:\s+(\d+))?/i);
+    if (issueViewMatch) {
+      return issueViewMatch[1] ? `Viewing issue #${issueViewMatch[1]}` : 'Viewing issue';
+    }
+    const issueEditMatch = rawCmd.match(/gh\s+issue\s+edit(?:\s+(\d+))?/i);
+    if (issueEditMatch) {
+      return issueEditMatch[1] ? `Updating issue #${issueEditMatch[1]}` : 'Updating issue';
+    }
+    const issueCommentMatch = rawCmd.match(/gh\s+issue\s+comment(?:\s+(\d+))?/i);
+    if (issueCommentMatch) {
+      return issueCommentMatch[1] ? `Commenting on issue #${issueCommentMatch[1]}` : 'Commenting on issue';
+    }
+
+    // Git commands
+    if (/git\s+checkout/i.test(rawCmd)) return 'Git: Checking out branch';
+    if (/git\s+status/i.test(rawCmd)) return 'Git: Checking status';
+    if (/git\s+diff/i.test(rawCmd)) return 'Git: Inspecting diff';
+    if (/git\s+commit/i.test(rawCmd)) return 'Git: Committing changes';
+    if (/git\s+push/i.test(rawCmd)) return 'Git: Pushing branch';
+
+    // Generic command fallback: clean up first line
+    const firstLine = rawCmd.split('\n')[0].trim();
+    return `Running ${firstLine}`;
+  }
+
+  if (name === 'view_file') {
+    const rawPath = params?.AbsolutePath || params?.TargetFile || params?.path || params?.file || '';
+    if (!rawPath) return 'Reading file';
+    return `Reading ${path.basename(rawPath)}`;
+  }
+
+  if (name === 'replace_file_content' || name === 'write_to_file' || name === 'multi_replace_file_content') {
+    const rawPath = params?.TargetFile || params?.AbsolutePath || params?.path || params?.file || '';
+    if (!rawPath) return 'Editing file';
+    return `Editing ${path.basename(rawPath)}`;
+  }
+
+  if (name === 'grep_search') {
+    const query = params?.Query || params?.query || params?.pattern || '';
+    if (!query) return 'Searching codebase';
+    return `Searching codebase for "${query}"`;
+  }
+
+  if (name === 'find_by_name') {
+    const pattern = params?.Pattern || params?.pattern || '';
+    if (!pattern) return 'Finding files';
+    return `Finding files matching "${pattern}"`;
+  }
+
+  if (name === 'list_dir') {
+    const dirPath = params?.DirectoryPath || params?.path || '';
+    if (!dirPath) return 'Listing directory';
+    const base = path.basename(dirPath.replace(/[/\\]+$/, '')) || dirPath;
+    return `Listing directory ${base}`;
+  }
+
+  if (name === 'invoke_subagent') {
+    const role =
+      params?.Subagents?.[0]?.Role ||
+      params?.Subagents?.[0]?.role ||
+      params?.Role ||
+      params?.role ||
+      params?.TypeName ||
+      params?.name ||
+      '';
+    if (!role) return 'Running subagent';
+    return `Running subagent: ${role}`;
+  }
+
+  if (name === 'search_web') {
+    const query = params?.query || params?.Query || '';
+    if (!query) return 'Searching web';
+    return `Searching web for "${query}"`;
+  }
+
+  if (name === 'read_url_content') {
+    const url = params?.Url || params?.url || '';
+    if (!url) return 'Reading URL content';
+    return `Reading URL ${url}`;
+  }
+
+  return `Tool: ${name}`;
+}
+
+/**
  * Renders a styled Unicode summary card.
  */
 export function renderSummaryCard(options: SummaryCardOptions): string {
@@ -775,19 +898,38 @@ export class TerminalSpinner {
     }
   }
 
-  private render(): void {
-    if (!this.isRunning || !this.isTTY) return;
-
+  public formatLine(message: string, maxWidth?: number): string {
+    const cols = maxWidth ?? (process.stderr.columns || process.stdout.columns || 80);
     const frame = pc.cyan(this.frames[this.currentFrame]);
-    this.currentFrame = (this.currentFrame + 1) % this.frames.length;
-
     const elapsedSeconds = Math.floor((Date.now() - this.startTime) / 1000);
     const mins = Math.floor(elapsedSeconds / 60);
     const secs = elapsedSeconds % 60;
-    const timeStr = pc.dim(`[${mins}m ${secs < 10 ? '0' : ''}${secs}s]`);
+    const timePlain = `[${mins}m ${secs < 10 ? '0' : ''}${secs}s]`;
+    const timeStr = pc.dim(timePlain);
+
+    // Fixed parts = 2 (prefix spaces) + 1 (frame) + 1 (space) + 2 (spaces before time) + timePlain.length
+    const fixedWidth = 6 + timePlain.length;
+    const availableMsgWidth = Math.max(0, cols - fixedWidth - 1);
+
+    let truncatedMsg = message;
+    if (stripAnsi(message).length > availableMsgWidth) {
+      truncatedMsg =
+        availableMsgWidth > 3
+          ? truncateAnsi(message, availableMsgWidth - 3) + '...'
+          : truncateAnsi(message, availableMsgWidth);
+    }
+
+    return `  ${frame} ${truncatedMsg}  ${timeStr}`;
+  }
+
+  private render(): void {
+    if (!this.isRunning || !this.isTTY) return;
+
+    this.currentFrame = (this.currentFrame + 1) % this.frames.length;
+    const line = this.formatLine(this.message);
 
     // \r moves to beginning of line, \x1b[K clears line to right
-    process.stderr.write(`\r\x1b[K  ${frame} ${this.message}  ${timeStr}`);
+    process.stderr.write(`\r\x1b[K${line}`);
   }
 
   public stop(): void {

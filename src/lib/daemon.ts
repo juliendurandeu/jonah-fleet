@@ -3,7 +3,12 @@ import path from 'node:path';
 import { spawn, execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { runLocalRoutine } from './runner.js';
-import { cleanupStaleWorktrees } from './worktree.js';
+import { cleanupStaleWorktrees, listActiveWorktrees } from './worktree.js';
+import {
+  KeyboardController,
+  printKeybindingCheatSheet,
+  printDaemonStatusSummary,
+} from './daemon-keys.js';
 import pc from 'picocolors';
 
 const execFileAsync = promisify(execFile);
@@ -16,7 +21,7 @@ export interface DaemonState {
   routines: string[];
   lastReviewCheckAt?: string;
   lastAutoworkCheckAt?: string;
-  status: 'idle' | 'working' | 'stopped';
+  status: 'idle' | 'working' | 'paused' | 'stopped';
   activeRoutine?: string;
   activeTarget?: string;
   activeWorktree?: string;
@@ -30,6 +35,9 @@ export interface DaemonOptions {
   model?: string;
   foreground?: boolean;
   verbose?: boolean;
+  stdin?: any;
+  getPRs?: (repoRoot: string) => Promise<ReviewablePR[]>;
+  runRoutine?: (opts: any) => Promise<{ success: boolean; exitCode?: number }>;
 }
 
 export function getDaemonStatePath(repoRoot: string): string {
@@ -325,7 +333,7 @@ export async function drainReviewQueue(drainOptions: DrainReviewQueueOptions): P
 }
 
 /**
- * Runs the multi-cadence polling daemon loop in the current process.
+ * Runs the multi-cadence polling daemon loop in the current process with interactive controls.
  */
 export async function runDaemonLoop(repoRoot: string, options: DaemonOptions = {}): Promise<void> {
   const reviewInterval = options.reviewInterval || 3;
@@ -346,10 +354,14 @@ export async function runDaemonLoop(repoRoot: string, options: DaemonOptions = {
   console.log(pc.dim(`   PID: ${process.pid}`));
   console.log(pc.dim(`   Peer Review Watchdog: Every ${reviewInterval} minutes (with zero-cost PR preflight)`));
   console.log(pc.dim(`   Autowork Backlog Scan: Every ${autoworkInterval} minutes`));
-  console.log(pc.dim(`   Working Directory: ${repoRoot}\n`));
+  console.log(pc.dim(`   Working Directory: ${repoRoot}`));
+  console.log(pc.dim(`   Interactive Hotkeys: 'r' (review), 'a' (autowork), 'p' (pause), 's' (status), 'q' (stop), '?' (help)\n`));
 
   let isStopping = false;
+  let isGracefulStopping = false;
   let isWorking = false;
+  let isPaused = false;
+  let pendingRoutine: 'peer-review' | 'autowork' | null = null;
 
   // Set up decoupled intervals
   const reviewIntervalMs = reviewInterval * 60 * 1000;
@@ -359,6 +371,9 @@ export async function runDaemonLoop(repoRoot: string, options: DaemonOptions = {
   let nextAutoworkCheckTime = Date.now() + (routines.includes('autowork') ? autoworkIntervalMs : Infinity);
   let lastOpenPRCount: number | undefined = undefined;
 
+  const getPRsFn = options.getPRs || getOpenReviewablePRs;
+  const runRoutineFn = options.runRoutine || runLocalRoutine;
+
   const clearTicker = () => {
     if (process.stderr.isTTY && !options.verbose) {
       process.stderr.write('\r\x1b[K');
@@ -367,6 +382,15 @@ export async function runDaemonLoop(repoRoot: string, options: DaemonOptions = {
 
   const updateTicker = () => {
     if (isStopping || isWorking || options.verbose || !process.stderr.isTTY) return;
+
+    if (isPaused) {
+      const queueStr = pendingRoutine ? pc.cyan(` [Queued: ${pendingRoutine}]`) : '';
+      process.stderr.write(
+        `\r\x1b[K${pc.dim('[' + new Date().toLocaleTimeString() + ']')} ⏸️  ${pc.yellow('PAUSED · Press \'p\' to resume or hotkeys to trigger')}${queueStr}`
+      );
+      return;
+    }
+
     const now = Date.now();
     const nextCheck = Math.min(nextReviewCheckTime, nextAutoworkCheckTime);
     const diffMs = Math.max(0, nextCheck - now);
@@ -375,19 +399,17 @@ export async function runDaemonLoop(repoRoot: string, options: DaemonOptions = {
     const secs = remainingSecs % 60;
     const timeStr = `${mins}m ${secs < 10 ? '0' : ''}${secs}s`;
     const prStr = lastOpenPRCount !== undefined ? ` (${lastOpenPRCount} ready PRs)` : '';
+    const queueStr = pendingRoutine ? pc.cyan(` [Queued: ${pendingRoutine}]`) : '';
     process.stderr.write(
-      `\r\x1b[K${pc.dim('[' + new Date().toLocaleTimeString() + ']')} 💤 ${pc.dim('Watchdog Idle · Next check in ' + timeStr + prStr)}`
+      `\r\x1b[K${pc.dim('[' + new Date().toLocaleTimeString() + ']')} 💤 ${pc.dim('Watchdog Idle · Next check in ' + timeStr + prStr)}${queueStr}`
     );
   };
-
-  const tickerInterval = setInterval(updateTicker, 1000);
 
   const handleStop = async () => {
     if (isStopping) return;
     isStopping = true;
+    keyboard.stop();
     clearInterval(tickerInterval);
-    clearInterval(reviewTimer);
-    clearInterval(autoworkTimer);
     clearTicker();
     console.log(pc.yellow(`\nStopping local agent daemon...`));
     clearDaemonState(repoRoot);
@@ -408,13 +430,35 @@ export async function runDaemonLoop(repoRoot: string, options: DaemonOptions = {
         options,
         isStopping: () => isStopping,
         clearTicker,
+        getPRs: getPRsFn,
+        runRoutine: runRoutineFn,
       });
-      const prs = await getOpenReviewablePRs(repoRoot);
+      const prs = await getPRsFn(repoRoot);
       lastOpenPRCount = prs.length;
     } finally {
       isWorking = false;
+      state.status = isPaused ? 'paused' : 'idle';
+      state.activeRoutine = undefined;
+      state.activeTarget = undefined;
+      writeDaemonState(repoRoot, state);
       nextReviewCheckTime = Date.now() + reviewIntervalMs;
       updateTicker();
+
+      if (isGracefulStopping) {
+        await handleStop();
+        return;
+      }
+
+      if (pendingRoutine && !isStopping) {
+        const next = pendingRoutine;
+        pendingRoutine = null;
+        console.log(pc.cyan(`\n[${new Date().toLocaleTimeString()}] ⚡ Executing queued routine: ${next}...`));
+        if (next === 'peer-review') {
+          await performReviewDrain();
+        } else if (next === 'autowork') {
+          await runAutoworkCheck();
+        }
+      }
     }
   };
 
@@ -423,7 +467,7 @@ export async function runDaemonLoop(repoRoot: string, options: DaemonOptions = {
 
     // Strict priority invariant: drain reviewable PRs before running autowork
     if (routines.includes('peer-review')) {
-      const pendingPRs = await countOpenReadyPRs(repoRoot);
+      const pendingPRs = (await getPRsFn(repoRoot)).length;
       if (pendingPRs > 0) {
         console.log(
           pc.cyan(
@@ -432,7 +476,7 @@ export async function runDaemonLoop(repoRoot: string, options: DaemonOptions = {
         );
         await performReviewDrain();
 
-        const remainingPRs = await countOpenReadyPRs(repoRoot);
+        const remainingPRs = (await getPRsFn(repoRoot)).length;
         if (remainingPRs > 0) {
           console.log(
             pc.yellow(
@@ -459,13 +503,13 @@ export async function runDaemonLoop(repoRoot: string, options: DaemonOptions = {
       console.log(pc.cyan(`\n[${new Date().toLocaleTimeString()}] 🚀 Autowork Backlog Scan: Starting session...`));
       await cleanupStaleWorktrees(repoRoot);
 
-      const result = await runLocalRoutine({
+      const result = await runRoutineFn({
         targetDir: repoRoot,
         routine: 'autowork',
         model: options.model,
         verbose: options.verbose,
         noWorktree: false,
-        onTargetDetected: (target) => {
+        onTargetDetected: (target: string) => {
           state.activeTarget = target;
           writeDaemonState(repoRoot, state);
         },
@@ -480,7 +524,7 @@ export async function runDaemonLoop(repoRoot: string, options: DaemonOptions = {
       console.error(pc.red(`✗ Error in autowork: ${err.message}`));
     } finally {
       isWorking = false;
-      state.status = 'idle';
+      state.status = isPaused ? 'paused' : 'idle';
       state.activeRoutine = undefined;
       state.activeTarget = undefined;
       writeDaemonState(repoRoot, state);
@@ -489,7 +533,7 @@ export async function runDaemonLoop(repoRoot: string, options: DaemonOptions = {
 
       // Immediate post-autowork convergence sweep: if autowork opened/readied a PR, drain it immediately!
       if (!isStopping && routines.includes('peer-review')) {
-        const newPRCount = await countOpenReadyPRs(repoRoot);
+        const newPRCount = (await getPRsFn(repoRoot)).length;
         if (newPRCount > 0) {
           console.log(
             pc.cyan(
@@ -499,20 +543,143 @@ export async function runDaemonLoop(repoRoot: string, options: DaemonOptions = {
           await performReviewDrain();
         }
       }
+
+      if (isGracefulStopping) {
+        await handleStop();
+        return;
+      }
+
+      if (pendingRoutine && !isStopping) {
+        const next = pendingRoutine;
+        pendingRoutine = null;
+        console.log(pc.cyan(`\n[${new Date().toLocaleTimeString()}] ⚡ Executing queued routine: ${next}...`));
+        if (next === 'peer-review') {
+          await performReviewDrain();
+        } else if (next === 'autowork') {
+          await runAutoworkCheck();
+        }
+      }
     }
   };
+
+  // Keyboard Controller setup
+  const keyboard = new KeyboardController({
+    stdin: options.stdin || process.stdin,
+    onReview: async () => {
+      if (isStopping || isGracefulStopping) return;
+      if (isWorking) {
+        pendingRoutine = 'peer-review';
+        clearTicker();
+        console.log(
+          pc.cyan(`\n[${new Date().toLocaleTimeString()}] ⏳ Peer Review scan queued (will run after current routine finishes).`)
+        );
+        updateTicker();
+        return;
+      }
+      clearTicker();
+      console.log(pc.cyan(`\n[${new Date().toLocaleTimeString()}] ⚡ Triggering immediate Peer Review scan on demand...`));
+      await performReviewDrain();
+    },
+    onAutowork: async () => {
+      if (isStopping || isGracefulStopping) return;
+      if (isWorking) {
+        pendingRoutine = 'autowork';
+        clearTicker();
+        console.log(
+          pc.cyan(`\n[${new Date().toLocaleTimeString()}] ⏳ Autowork backlog scan queued (will run after current routine finishes).`)
+        );
+        updateTicker();
+        return;
+      }
+      clearTicker();
+      console.log(pc.cyan(`\n[${new Date().toLocaleTimeString()}] ⚡ Triggering immediate Autowork scan on demand...`));
+      await runAutoworkCheck();
+    },
+    onPauseToggle: () => {
+      if (isStopping || isGracefulStopping) return;
+      isPaused = !isPaused;
+      clearTicker();
+      if (isPaused) {
+        if (state.status !== 'working') state.status = 'paused';
+        writeDaemonState(repoRoot, state);
+        console.log(
+          pc.yellow(`\n[${new Date().toLocaleTimeString()}] ⏸️  Daemon polling paused. Automatic interval sweeps suspended. (Press 'p' to resume)`)
+        );
+      } else {
+        if (state.status !== 'working') state.status = 'idle';
+        writeDaemonState(repoRoot, state);
+        console.log(
+          pc.green(`\n[${new Date().toLocaleTimeString()}] ▶️  Daemon polling resumed. Automated interval sweeps active.`)
+        );
+      }
+      updateTicker();
+    },
+    onStatus: async () => {
+      clearTicker();
+      const activeWorktrees = await listActiveWorktrees(repoRoot);
+      printDaemonStatusSummary({
+        repoRoot,
+        state,
+        pendingRoutine,
+        activeWorktrees,
+      });
+      updateTicker();
+    },
+    onGracefulStop: async () => {
+      if (isStopping) return;
+      pendingRoutine = null;
+      if (isWorking) {
+        isGracefulStopping = true;
+        clearTicker();
+        console.log(
+          pc.yellow(
+            `\n[${new Date().toLocaleTimeString()}] 🛑 Graceful stop requested. Waiting for active routine (${state.activeRoutine || 'routine'}) to complete before stopping...`
+          )
+        );
+        return;
+      }
+      await handleStop();
+    },
+    onForceStop: async () => {
+      await handleStop();
+    },
+    onHelp: () => {
+      clearTicker();
+      printKeybindingCheatSheet();
+      updateTicker();
+    },
+  });
+
+  keyboard.start();
 
   // Run initial checks on start: drain review queue first, then move to autowork
   if (routines.includes('peer-review')) {
     await performReviewDrain();
   }
-  if (!isStopping && routines.includes('autowork')) {
+  if (!isStopping && !isGracefulStopping && routines.includes('autowork')) {
     await runAutoworkCheck();
   }
 
-  // Set up decoupled timers
-  const reviewTimer = setInterval(performReviewDrain, reviewIntervalMs);
-  const autoworkTimer = setInterval(runAutoworkCheck, autoworkIntervalMs);
+  // Set up 1-second watchdog tick loop for decoupled intervals and ticker
+  const tick = async () => {
+    if (isStopping || isGracefulStopping || isWorking) return;
+
+    if (!isPaused) {
+      const now = Date.now();
+      if (routines.includes('peer-review') && now >= nextReviewCheckTime) {
+        await performReviewDrain();
+        return;
+      }
+      if (routines.includes('autowork') && now >= nextAutoworkCheckTime) {
+        await runAutoworkCheck();
+        return;
+      }
+    }
+
+    updateTicker();
+  };
+
+  const tickerInterval = setInterval(tick, 1000);
 
   // Keep process alive
   await new Promise<void>(() => {});

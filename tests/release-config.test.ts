@@ -15,6 +15,7 @@ describe('Release Configuration & Manifests', () => {
     expect(config.packages['.']['release-type']).toBe('node');
     expect(config.packages['.']['package-name']).toBe('jonah-fleet');
     expect(config.packages['.']['changelog-path']).toBe('CHANGELOG.md');
+    expect(config.packages['.']['include-component-in-tag']).toBe(false);
   });
 
   it('validates .release-please-manifest.json aligns with package.json version', () => {
@@ -38,10 +39,19 @@ describe('Release Configuration & Manifests', () => {
     expect(workflowContent).toMatch(/token:\s*\${{\s*steps\.app-token\.outputs\.token\s*\|\|\s*secrets\.GH_PAT\s*\|\|\s*github\.token\s*}}/);
     expect(workflowContent).toContain('actions/create-github-app-token');
     expect(workflowContent).not.toMatch(/if:\s*.*secrets\./);
-    expect(workflowContent).toContain('id-token: write');
     expect(workflowContent).toContain('contents: write');
     expect(workflowContent).toContain('pull-requests: write');
     expect(workflowContent).toContain('issues: write');
+    expect(workflowContent).toContain('gh pr merge "$PR_NUMBER" --auto --squash');
+  });
+
+  it('validates .github/workflows/release.yml publication workflow configuration', () => {
+    const workflowPath = path.join(rootDir, '.github', 'workflows', 'release.yml');
+    expect(fs.existsSync(workflowPath)).toBe(true);
+
+    const workflowContent = fs.readFileSync(workflowPath, 'utf8');
+    expect(workflowContent).toContain("push:\n    tags:\n      - 'v*'\n      - 'jonah-fleet-v*'");
+    expect(workflowContent).toContain('id-token: write');
     expect(workflowContent).toContain('npm publish --provenance --access public');
   });
 });

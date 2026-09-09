@@ -8,6 +8,7 @@ import {
   detectActivePhase,
   detectClaimedIssue,
   detectClaimedPR,
+  formatActionDescription,
   renderSummaryCard,
   renderErrorCard,
 } from './terminal-card.js';
@@ -36,6 +37,168 @@ export interface RunLocalRoutineResult {
   output: string;
   worktreePath?: string;
   branchName?: string;
+}
+
+export interface StreamJsonEvent {
+  event?: string;
+  conversation_id?: string;
+  init?: {
+    cwd?: string;
+    tools?: string[];
+    permission_mode?: string;
+  };
+  step_update?: {
+    conversation_id?: string;
+    step_index?: number;
+    state?: 'ACTIVE' | 'DONE' | 'ERROR' | string;
+    step_type?: 'user_input' | 'agent_response' | 'tool' | 'thought' | string;
+    tool_name?: string;
+    tool_info?: {
+      name?: string;
+      parameters?: Record<string, any>;
+      output?: string;
+    };
+    text_delta?: string;
+    duration_seconds?: number;
+    usage?: {
+      input_tokens?: number;
+      output_tokens?: number;
+      thinking_tokens?: number;
+      total_tokens?: number;
+    };
+  };
+  agent_response?: any;
+  result?: {
+    conversation_id?: string;
+    status?: string;
+    response?: string;
+    duration_seconds?: number;
+    num_turns?: number;
+    usage?: {
+      input_tokens?: number;
+      output_tokens?: number;
+      thinking_tokens?: number;
+      total_tokens?: number;
+    };
+  };
+  [key: string]: any;
+}
+
+/**
+ * Line buffer for incremental stream-json chunk processing.
+ */
+export class LineBufferedStreamParser {
+  private buffer = '';
+  private onLine: (line: string) => void;
+
+  constructor(onLine: (line: string) => void) {
+    this.onLine = onLine;
+  }
+
+  public feed(chunk: string): void {
+    this.buffer += chunk;
+    const lines = this.buffer.split('\n');
+    this.buffer = lines.pop() ?? '';
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed.length > 0) {
+        this.onLine(trimmed);
+      }
+    }
+  }
+
+  public flush(): void {
+    if (this.buffer.trim().length > 0) {
+      this.onLine(this.buffer.trim());
+      this.buffer = '';
+    }
+  }
+}
+
+/**
+ * Safely parses a JSON event line from stream-json output.
+ */
+export function parseStreamJsonEvent(line: string): StreamJsonEvent | null {
+  if (!line || !line.trim()) return null;
+  try {
+    const parsed = JSON.parse(line);
+    if (parsed && typeof parsed === 'object') {
+      return parsed as StreamJsonEvent;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Formats stream-json events for verbose output.
+ */
+export function formatVerboseEvent(event: StreamJsonEvent): string | null {
+  const time = new Date().toLocaleTimeString();
+
+  if (event.event === 'init') {
+    return `${pc.dim(`[${time}]`)} ${pc.cyan('[init]')} Session started (conversation: ${event.conversation_id || 'n/a'})`;
+  }
+
+  if (event.event === 'step_update' && event.step_update) {
+    const su = event.step_update;
+
+    if (su.step_type === 'user_input') {
+      return `${pc.dim(`[${time}]`)} ${pc.magenta('[user_input]')} Prompt dispatched`;
+    }
+
+    if (su.step_type === 'tool') {
+      const toolName = su.tool_name || su.tool_info?.name || 'tool';
+      const params = su.tool_info?.parameters;
+
+      if (su.state === 'ACTIVE') {
+        const desc = formatActionDescription(toolName, params);
+        return `${pc.dim(`[${time}]`)} ${pc.blue('[tool:start]')} ${pc.bold(toolName)} → ${desc}`;
+      }
+      if (su.state === 'DONE') {
+        const dur = su.duration_seconds !== undefined ? `${su.duration_seconds.toFixed(1)}s` : 'done';
+        return `${pc.dim(`[${time}]`)} ${pc.green('[tool:done]')} ${pc.bold(toolName)} (${dur})`;
+      }
+    }
+
+    if (su.step_type === 'agent_response' || su.step_type === 'thought') {
+      if (su.text_delta) {
+        return su.text_delta;
+      }
+      if (su.state === 'DONE') {
+        const dur = su.duration_seconds !== undefined ? ` (${su.duration_seconds.toFixed(1)}s)` : '';
+        return `${pc.dim(`[${time}]`)} ${pc.cyan('[agent:step]')} Step ${su.step_index ?? 0} finished${dur}`;
+      }
+    }
+  }
+
+  if (event.event === 'result' && event.result) {
+    const res = event.result;
+    const dur = res.duration_seconds !== undefined ? `${res.duration_seconds.toFixed(1)}s` : '';
+    const tokens = res.usage?.total_tokens ? `${res.usage.total_tokens.toLocaleString()} tokens` : '';
+    const metrics = [dur, tokens].filter(Boolean).join(', ');
+    return `${pc.dim(`[${time}]`)} ${pc.bold(pc.green('[result]'))} ${res.status || 'COMPLETED'} (${metrics || 'done'})`;
+  }
+
+  return null;
+}
+
+/**
+ * Builds the invocation arguments for Antigravity CLI in stream-json mode.
+ */
+export function buildAgyArgs(prompt: string, model: string, printTimeout: string): string[] {
+  return [
+    '-p',
+    prompt,
+    '--model',
+    model,
+    '--output-format',
+    'stream-json',
+    '--print-timeout',
+    printTimeout,
+    '--dangerously-skip-permissions',
+  ];
 }
 
 /**
@@ -162,19 +325,11 @@ export async function runLocalRoutine(options: RunLocalRoutineOptions): Promise<
     PR_NUMBER: options.pr ? String(options.pr) : '',
   };
 
-  const args = [
-    '-p',
-    prompt,
-    '--model',
-    model,
-    '--output-format',
-    'text',
-    '--print-timeout',
-    printTimeout,
-    '--dangerously-skip-permissions',
-  ];
+  const args = buildAgyArgs(prompt, model, printTimeout);
 
   let output = '';
+  let finalResponseText = '';
+  let accumulatedOutput = '';
   let exitCode = 0;
   const startTime = Date.now();
 
@@ -210,44 +365,136 @@ export async function runLocalRoutine(options: RunLocalRoutineOptions): Promise<
   process.once('SIGINT', sigintHandler);
   process.once('SIGTERM', sigintHandler);
 
-  const processChunk = (chunk: string, isStderr: boolean = false) => {
-    output += chunk;
+  const checkTargetDetection = (text: string) => {
+    if (dynamicTargetDetected || !text) return;
+    const detected =
+      routine === 'peer-review' ? detectClaimedPR(text) : detectClaimedIssue(text);
+    if (detected) {
+      dynamicTargetDetected = true;
+      targetLabel = detected;
+      options.onTargetDetected?.(detected);
+      if (spinner) {
+        spinner.update(`${targetLabel}: ${activePhase}`);
+      }
+    }
+  };
 
+  const stdoutParser = new LineBufferedStreamParser((line: string) => {
+    const event = parseStreamJsonEvent(line);
+    if (event) {
+      if (event.event === 'step_update' && event.step_update) {
+        const su = event.step_update;
+
+        if (su.step_type === 'tool') {
+          const toolName = su.tool_name || su.tool_info?.name || 'unknown';
+          const toolParams = su.tool_info?.parameters;
+
+          if (su.state === 'ACTIVE') {
+            const actionDesc = formatActionDescription(toolName, toolParams);
+            if (spinner) {
+              spinner.update(`${targetLabel}: ${actionDesc}`);
+            }
+            if (toolParams?.CommandLine) {
+              checkTargetDetection(toolParams.CommandLine);
+            }
+            if (options.verbose) {
+              const formatted = formatVerboseEvent(event);
+              if (formatted) console.log(formatted);
+            }
+          } else if (su.state === 'DONE') {
+            if (su.tool_info?.output) {
+              checkTargetDetection(su.tool_info.output);
+            }
+            if (spinner) {
+              activePhase = 'Evaluating tool output...';
+              spinner.update(`${targetLabel}: ${activePhase}`);
+            }
+            if (options.verbose) {
+              const formatted = formatVerboseEvent(event);
+              if (formatted) console.log(formatted);
+            }
+          }
+        } else if (su.step_type === 'agent_response' || su.step_type === 'thought') {
+          if (su.text_delta) {
+            accumulatedOutput += su.text_delta;
+            checkTargetDetection(su.text_delta);
+            const newPhase = detectActivePhase(su.text_delta, activePhase);
+            if (newPhase !== activePhase) {
+              activePhase = newPhase;
+              if (spinner) {
+                spinner.update(`${targetLabel}: ${activePhase}`);
+              }
+            }
+            if (options.verbose) {
+              process.stdout.write(su.text_delta);
+            }
+          } else if (options.verbose && su.state === 'DONE') {
+            const formatted = formatVerboseEvent(event);
+            if (formatted) console.log(formatted);
+          }
+        } else if (options.verbose) {
+          const formatted = formatVerboseEvent(event);
+          if (formatted) console.log(formatted);
+        }
+      } else if (event.event === 'result' && event.result) {
+        if (event.result.response) {
+          finalResponseText = event.result.response;
+          checkTargetDetection(event.result.response);
+        }
+        if (options.verbose) {
+          const formatted = formatVerboseEvent(event);
+          if (formatted) console.log(formatted);
+        }
+      } else if (event.event === 'init') {
+        if (options.verbose) {
+          const formatted = formatVerboseEvent(event);
+          if (formatted) console.log(formatted);
+        }
+      }
+    } else {
+      // Non-JSON line from stdout
+      accumulatedOutput += line + '\n';
+      checkTargetDetection(line);
+      if (options.verbose) {
+        console.log(line);
+      } else if (spinner) {
+        const newPhase = detectActivePhase(line, activePhase);
+        if (newPhase !== activePhase) {
+          activePhase = newPhase;
+          spinner.update(`${targetLabel}: ${activePhase}`);
+        }
+      }
+    }
+  });
+
+  const stderrParser = new LineBufferedStreamParser((line: string) => {
+    checkTargetDetection(line);
+    if (options.verbose) {
+      console.error(pc.dim(`[stderr] ${line}`));
+    } else if (spinner) {
+      const newPhase = detectActivePhase(line, activePhase);
+      if (newPhase !== activePhase) {
+        activePhase = newPhase;
+        spinner.update(`${targetLabel}: ${activePhase}`);
+      }
+    }
+  });
+
+  const processChunk = (chunk: string, isStderr: boolean = false) => {
     try {
       fs.appendFileSync(logFilePath, chunk, 'utf8');
     } catch {
       // Ignore log write errors
     }
 
-    if (!dynamicTargetDetected) {
-      const detected =
-        routine === 'peer-review' ? detectClaimedPR(chunk) : detectClaimedIssue(chunk);
-      if (detected) {
-        dynamicTargetDetected = true;
-        targetLabel = detected;
-        options.onTargetDetected?.(detected);
-        if (spinner) {
-          spinner.update(`${targetLabel}: ${activePhase}`);
-        }
-      }
-    }
-
     if (options.onLog) {
       options.onLog(chunk);
     }
 
-    if (options.verbose) {
-      if (isStderr) {
-        process.stderr.write(chunk);
-      } else {
-        process.stdout.write(chunk);
-      }
-    } else if (spinner) {
-      const newPhase = detectActivePhase(chunk, activePhase);
-      if (newPhase !== activePhase) {
-        activePhase = newPhase;
-        spinner.update(`${targetLabel}: ${activePhase}`);
-      }
+    if (isStderr) {
+      stderrParser.feed(chunk);
+    } else {
+      stdoutParser.feed(chunk);
     }
   };
 
@@ -285,6 +532,10 @@ export async function runLocalRoutine(options: RunLocalRoutineOptions): Promise<
       await cleanup();
     }
   }
+
+  stdoutParser.flush();
+  stderrParser.flush();
+  output = finalResponseText || accumulatedOutput;
 
   // Render Card if not in verbose mode and showCard is not disabled
   if (options.showCard !== false && !options.verbose) {

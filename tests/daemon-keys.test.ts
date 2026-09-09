@@ -630,3 +630,163 @@ describe('Daemon Log Tail and Worktree Inspection', () => {
     consoleSpy.mockRestore();
   });
 });
+
+describe('Rotating Status-Line Tips & Viewport Width Guardrails', () => {
+  it('defines all 11 keybinding tips in DAEMON_STATUS_TIPS and DAEMON_PAUSED_TIPS', async () => {
+    const { DAEMON_STATUS_TIPS, DAEMON_PAUSED_TIPS } = await import('../src/lib/daemon-keys.js');
+
+    expect(DAEMON_STATUS_TIPS.length).toBe(11);
+    expect(DAEMON_PAUSED_TIPS.length).toBe(11);
+
+    expect(DAEMON_STATUS_TIPS).toContain("Tip: press 'r' to run review pass now");
+    expect(DAEMON_STATUS_TIPS).toContain("Tip: press 'a' to run autowork scan now");
+    expect(DAEMON_STATUS_TIPS).toContain("Tip: press 'R' to review a specific PR #");
+    expect(DAEMON_STATUS_TIPS).toContain("Tip: press 'A' to work a specific Issue #");
+    expect(DAEMON_STATUS_TIPS).toContain("Tip: press 'p' to pause/resume automatic checks");
+    expect(DAEMON_STATUS_TIPS).toContain("Tip: press 's' to view daemon status");
+    expect(DAEMON_STATUS_TIPS).toContain("Tip: press 'v' to toggle verbose streaming");
+    expect(DAEMON_STATUS_TIPS).toContain("Tip: press 'l' to view recent log tail");
+    expect(DAEMON_STATUS_TIPS).toContain("Tip: press 'w' to inspect/clean worktrees");
+    expect(DAEMON_STATUS_TIPS).toContain("Tip: press 'q' to stop daemon gracefully");
+    expect(DAEMON_STATUS_TIPS).toContain("Tip: press '?' for all keybindings");
+
+    expect(DAEMON_PAUSED_TIPS).toContain("Tip: press 'p' to resume scheduled checks");
+  });
+
+  it('calculates rotating tip index every 4 seconds', async () => {
+    const { getRotatingTipIndex, getRotatingTip, DAEMON_STATUS_TIPS } = await import(
+      '../src/lib/daemon-keys.js'
+    );
+
+    expect(getRotatingTipIndex(0, 4, 11)).toBe(0);
+    expect(getRotatingTipIndex(1000, 4, 11)).toBe(0);
+    expect(getRotatingTipIndex(3999, 4, 11)).toBe(0);
+    expect(getRotatingTipIndex(4000, 4, 11)).toBe(1);
+    expect(getRotatingTipIndex(7999, 4, 11)).toBe(1);
+    expect(getRotatingTipIndex(8000, 4, 11)).toBe(2);
+    expect(getRotatingTipIndex(40000, 4, 11)).toBe(10);
+    expect(getRotatingTipIndex(44000, 4, 11)).toBe(0); // wrap around
+
+    expect(getRotatingTip(0, DAEMON_STATUS_TIPS)).toBe("Tip: press 'r' to run review pass now");
+    expect(getRotatingTip(4000, DAEMON_STATUS_TIPS)).toBe("Tip: press 'a' to run autowork scan now");
+    expect(getRotatingTip(8000, DAEMON_STATUS_TIPS)).toBe("Tip: press 'R' to review a specific PR #");
+  });
+
+  it('truncates ANSI formatted text without breaking escape sequences via truncateAnsi', async () => {
+    const { truncateAnsi } = await import('../src/lib/daemon-keys.js');
+    const { stripAnsi } = await import('../src/lib/terminal-card.js');
+
+    expect(truncateAnsi('Hello World', 5)).toBe('Hello\x1b[0m');
+    expect(stripAnsi(truncateAnsi('Hello World', 5))).toBe('Hello');
+
+    const colored = '\x1b[31mHello\x1b[39m \x1b[32mWorld\x1b[39m';
+    const truncated = truncateAnsi(colored, 7);
+    expect(stripAnsi(truncated)).toBe('Hello W');
+    expect(stripAnsi(truncated).length).toBe(7);
+
+    expect(truncateAnsi('Short', 10)).toBe('Short');
+    expect(truncateAnsi('', 5)).toBe('');
+    expect(truncateAnsi('Hello', 0)).toBe('');
+  });
+
+  it('formats idle status line with timestamp, countdown, and rotating tip when columns >= 55', async () => {
+    const { formatDaemonStatusLine } = await import('../src/lib/daemon-keys.js');
+    const { stripAnsi } = await import('../src/lib/terminal-card.js');
+
+    const now = new Date('2026-09-09T12:00:00.000Z');
+    const nextCheckTime = now.getTime() + 150000; // 2m 30s
+
+    const line = formatDaemonStatusLine({
+      now,
+      nextCheckTime,
+      columns: 120,
+      tipIndex: 0,
+      lastOpenPRCount: 2,
+    });
+
+    const plain = stripAnsi(line);
+    expect(plain).toContain('Watchdog Idle');
+    expect(plain).toContain('Next check in 2m 30s (2 ready PRs)');
+    expect(plain).toContain("Tip: press 'r' to run review pass now");
+    expect(plain.length).toBeLessThanOrEqual(118); // 120 - 2
+  });
+
+  it('omits tip and renders only core countdown when terminal columns < 55', async () => {
+    const { formatDaemonStatusLine } = await import('../src/lib/daemon-keys.js');
+    const { stripAnsi } = await import('../src/lib/terminal-card.js');
+
+    const now = new Date('2026-09-09T12:00:00.000Z');
+    const nextCheckTime = now.getTime() + 60000; // 1m 00s
+
+    const line = formatDaemonStatusLine({
+      now,
+      nextCheckTime,
+      columns: 50,
+      tipIndex: 0,
+    });
+
+    const plain = stripAnsi(line);
+    expect(plain).toContain('Watchdog Idle');
+    expect(plain).not.toContain('Tip:');
+    expect(plain.length).toBeLessThanOrEqual(48); // 50 - 2
+  });
+
+  it('formats paused status line with PAUSED indicator and resume tip', async () => {
+    const { formatDaemonStatusLine } = await import('../src/lib/daemon-keys.js');
+    const { stripAnsi } = await import('../src/lib/terminal-card.js');
+
+    const now = new Date('2026-09-09T12:00:00.000Z');
+
+    const line = formatDaemonStatusLine({
+      now,
+      isPaused: true,
+      columns: 80,
+      tipIndex: 0,
+    });
+
+    const plain = stripAnsi(line);
+    expect(plain).toContain('PAUSED');
+    expect(plain).toContain("Tip: press 'p' to resume scheduled checks");
+    expect(plain.length).toBeLessThanOrEqual(78);
+  });
+
+  it('includes queued routine in status line and respects narrow width boundaries', async () => {
+    const { formatDaemonStatusLine } = await import('../src/lib/daemon-keys.js');
+    const { stripAnsi } = await import('../src/lib/terminal-card.js');
+
+    const now = new Date('2026-09-09T12:00:00.000Z');
+    const nextCheckTime = now.getTime() + 30000;
+
+    const line = formatDaemonStatusLine({
+      now,
+      nextCheckTime,
+      pendingRoutine: 'peer-review',
+      columns: 60,
+      tipIndex: 1,
+    });
+
+    const plain = stripAnsi(line);
+    expect(plain.length).toBeLessThanOrEqual(58); // 60 - 2
+  });
+
+  it('strictly clamps lines to columns - 2 across varying widths', async () => {
+    const { formatDaemonStatusLine } = await import('../src/lib/daemon-keys.js');
+    const { stripAnsi } = await import('../src/lib/terminal-card.js');
+
+    const now = new Date('2026-09-09T12:00:00.000Z');
+    const nextCheckTime = now.getTime() + 90000;
+
+    for (const cols of [40, 50, 55, 60, 80, 100, 120]) {
+      const line = formatDaemonStatusLine({
+        now,
+        nextCheckTime,
+        columns: cols,
+        tipIndex: 2,
+        lastOpenPRCount: 1,
+      });
+      const plain = stripAnsi(line);
+      expect(plain.length).toBeLessThanOrEqual(cols - 2);
+    }
+  });
+});
+

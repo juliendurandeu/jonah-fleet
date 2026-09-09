@@ -4,15 +4,14 @@ on:
   issues:
     types: [labeled, opened]
 
-concurrency:
-  group: autowork-bug-${{ github.event.issue.number }}
-  cancel-in-progress: true
-
 jobs:
   fire-autowork:
     if: >-
       (github.event.action == 'opened' && contains(github.event.issue.labels.*.name, 'bug') && (contains(github.event.issue.labels.*.name, 'priority/P1') || contains(github.event.issue.labels.*.name, 'priority/P0'))) ||
       (github.event.action == 'labeled' && contains(github.event.issue.labels.*.name, 'bug') && (contains(github.event.issue.labels.*.name, 'priority/P1') || contains(github.event.issue.labels.*.name, 'priority/P0')))
+    concurrency:
+      group: autowork-bug-${{ github.event.issue.number }}
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     timeout-minutes: 35
     permissions:

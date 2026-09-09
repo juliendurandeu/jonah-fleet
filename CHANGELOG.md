@@ -24,6 +24,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * **ci:** avoid direct secrets reference in release-please if conditional ([#83](https://github.com/juliendurandeu/jonah-fleet/issues/83)) ([6d6dcd9](https://github.com/juliendurandeu/jonah-fleet/commit/6d6dcd9c472f76dc6026ed16cca49cf665a6ea8c))
 
+## [Unreleased] - 2026-09-09
+
+### Added
+- **daemon:** Interactive keyboard controller with idle hotkeys and execution queue ([#88](https://github.com/juliendurandeu/jonah-fleet/issues/88)):
+  - Captures single-keypress inputs in foreground daemon mode without requiring Enter (`process.stdin.setRawMode`).
+  - Added hotkeys: `r` (immediate peer-review scan), `a` (immediate autowork scan), `p` (pause/resume automatic polling), `s` (daemon status summary), `q` (graceful shutdown), `Ctrl+C` (force stop), and `?`/`h` (interactive cheat-sheet).
+  - Single-slot pending execution queue (`pendingRoutine`) when pressing triggers while busy, dispatched immediately upon completion of active routine.
+  - Paused state persistence in `daemon.json` (`status: 'paused'`), keeping manual sweeps functional.
+  - Reset countdown timers upon on-demand sweep completion to prevent duplicate interval executions.
+  - Unit tests in `tests/daemon-keys.test.ts`.
+
 ## [Unreleased] - 2026-09-08
 
 ### Added

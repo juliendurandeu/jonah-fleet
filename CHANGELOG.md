@@ -30,6 +30,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **daemon:** Fix `ReferenceError: Cannot access 'tickerInterval' before initialization` on graceful stop (`q`) or SIGINT / SIGTERM during initial startup checks or routine executions by declaring interval and keyboard handles in outer scope before shutdown handlers.
 
 ### Added
+- **labels:** Prune unused boilerplate labels via deterministic CLI and housekeeping routine ([#97](https://github.com/juliendurandeu/jonah-fleet/issues/97)):
+  - Implemented `src/lib/labels.ts` with GraphQL label queries, pagination, and classification into `active`, `protected_zero_count`, `historical`, and `prunable`.
+  - Added protected fleet taxonomy shields retaining `priority/*`, `type/*`, `size/*`, `needs-triage`, `ready-for-agent`, `needs-human`, `needs-info`, `needs-design`, `wontfix`, `measurement`, `blocked`, `autorelease:*`, `dependencies`, and `security` labels.
+  - Added support for custom user-defined protected labels in `agents-manifest.json` (`labels.protected`) and `schema.json`.
+  - Implemented `jonah-fleet labels audit` and `jonah-fleet labels prune [--dry-run] [--yes] [--repo <repo>] [--json]`.
+  - Added `--prune-labels` flag to `jonah-fleet init` to optionally clean boilerplate labels on initial workspace setup.
+  - Updated `issues-housekeeping.md` Step 6 to delegate label pruning to `npx --yes jonah-fleet labels prune --yes`.
+  - Unit tests in `tests/labels.test.ts` and prompt validation tests in `tests/prompts-validation.test.ts`.
 - **runner:** Stream real-time granular activity to foreground daemon spinner ([#96](https://github.com/juliendurandeu/jonah-fleet/issues/96)):
   - Updated agent invocation to run Antigravity CLI with `--output-format stream-json`.
   - Added line-buffered stream-json event parser in `src/lib/runner.ts` handling `step_update`, `tool`, `agent_response`, and `result` events.

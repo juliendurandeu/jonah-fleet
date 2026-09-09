@@ -5,6 +5,8 @@ import { createDefaultManifest, loadManifest, saveManifest } from '../lib/manife
 import { installFleet } from '../lib/installer.js';
 import { PresetName } from '../lib/presets.js';
 import { detectTechStack, DetectedStack } from '../lib/detector.js';
+import { pruneLabels } from '../lib/labels.js';
+import { defaultGhExecutor, GhExecutor } from '../lib/fleet-query.js';
 
 export interface InitOptions {
   preset?: string;
@@ -15,6 +17,8 @@ export interface InitOptions {
   testCmd?: string;
   buildCmd?: string;
   interactive?: boolean;
+  pruneLabels?: boolean;
+  executor?: GhExecutor;
 }
 
 export async function promptQuestion(query: string, defaultValue: string): Promise<string> {
@@ -122,6 +126,21 @@ export async function runInit(options: InitOptions = {}): Promise<void> {
   if (result.docsInstalled.length > 0) {
     console.log(pc.green(`  📄 Documentation:`));
     result.docsInstalled.forEach((d) => console.log(`     - ${d}`));
+  }
+
+  // 6. Optional boilerplate label pruning
+  if (options.pruneLabels) {
+    try {
+      console.log(pc.bold('\n🏷️  Pruning unused boilerplate labels...'));
+      const pruneRes = await pruneLabels({ cwd, yes: true, dryRun: false, executor: options.executor });
+      if (pruneRes.pruned.length > 0) {
+        console.log(pc.green(`  ✓ Pruned ${pruneRes.pruned.length} unused boilerplate label(s): ${pruneRes.pruned.join(', ')}`));
+      } else {
+        console.log(pc.green('  ✓ No unused boilerplate labels found.'));
+      }
+    } catch (err: any) {
+      console.log(pc.yellow(`  ⚠️  Could not prune labels: ${err.message}`));
+    }
   }
 
   console.log(pc.bold(pc.green('\n🎉 Jonah Fleet initialization complete!\n')));

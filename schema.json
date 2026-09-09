@@ -146,6 +146,18 @@
       },
       "additionalProperties": false,
       "description": "Configuration for priority-driven dual local/cloud agent execution"
+    },
+    "labels": {
+      "type": "object",
+      "properties": {
+        "protected": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "User-defined list or wildcard patterns of protected labels retained during label pruning"
+        }
+      },
+      "additionalProperties": false,
+      "description": "Configuration for label management and protection shields"
     }
   },
   "required": ["version", "preset", "routines", "skills"],

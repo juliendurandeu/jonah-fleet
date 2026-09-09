@@ -8,6 +8,11 @@ import {
   KeyboardController,
   printKeybindingCheatSheet,
   printDaemonStatusSummary,
+  promptTargetedInput,
+  parseNumericTarget,
+  printDaemonLogTail,
+  inspectAndCleanWorktrees,
+  printWorktreesInspection,
 } from './daemon-keys.js';
 import pc from 'picocolors';
 
@@ -562,6 +567,141 @@ export async function runDaemonLoop(repoRoot: string, options: DaemonOptions = {
     }
   };
 
+  const runTargetedReview = async (prNumber: number): Promise<void> => {
+    if (isStopping || isWorking) return;
+    try {
+      isWorking = true;
+      clearTicker();
+      state.status = 'working';
+      state.activeRoutine = 'peer-review';
+      state.activeTarget = `PR #${prNumber}`;
+      writeDaemonState(repoRoot, state);
+
+      console.log(
+        pc.cyan(`\n[${new Date().toLocaleTimeString()}] 🎯 Targeted Peer Review: Starting session on PR #${prNumber}...`)
+      );
+      await cleanupStaleWorktrees(repoRoot);
+
+      const result = await runRoutineFn({
+        targetDir: repoRoot,
+        routine: 'peer-review',
+        pr: prNumber,
+        model: options.model,
+        verbose: options.verbose,
+        noWorktree: false,
+        onTargetDetected: (target: string) => {
+          state.activeTarget = target;
+          writeDaemonState(repoRoot, state);
+        },
+      });
+
+      if (result.success) {
+        console.log(pc.green(`✓ Targeted peer-review on PR #${prNumber} completed successfully.\n`));
+      } else {
+        console.warn(pc.yellow(`⚠️  Targeted peer-review on PR #${prNumber} completed with code ${result.exitCode}.\n`));
+      }
+    } catch (err: any) {
+      console.error(pc.red(`✗ Error in targeted peer-review: ${err.message}`));
+    } finally {
+      isWorking = false;
+      state.status = isPaused ? 'paused' : 'idle';
+      state.activeRoutine = undefined;
+      state.activeTarget = undefined;
+      writeDaemonState(repoRoot, state);
+      updateTicker();
+
+      if (isGracefulStopping) {
+        await handleStop();
+        return;
+      }
+
+      if (pendingRoutine && !isStopping) {
+        const next = pendingRoutine;
+        pendingRoutine = null;
+        console.log(pc.cyan(`\n[${new Date().toLocaleTimeString()}] ⚡ Executing queued routine: ${next}...`));
+        if (next === 'peer-review') {
+          await performReviewDrain();
+        } else if (next === 'autowork') {
+          await runAutoworkCheck();
+        }
+      }
+    }
+  };
+
+  const runTargetedAutowork = async (issueNumber: number): Promise<void> => {
+    if (isStopping || isWorking) return;
+    try {
+      isWorking = true;
+      clearTicker();
+      state.status = 'working';
+      state.activeRoutine = 'autowork';
+      state.activeTarget = `Issue #${issueNumber}`;
+      writeDaemonState(repoRoot, state);
+
+      console.log(
+        pc.cyan(`\n[${new Date().toLocaleTimeString()}] 🎯 Targeted Autowork: Starting session on Issue #${issueNumber}...`)
+      );
+      await cleanupStaleWorktrees(repoRoot);
+
+      const result = await runRoutineFn({
+        targetDir: repoRoot,
+        routine: 'autowork',
+        issue: issueNumber,
+        model: options.model,
+        verbose: options.verbose,
+        noWorktree: false,
+        onTargetDetected: (target: string) => {
+          state.activeTarget = target;
+          writeDaemonState(repoRoot, state);
+        },
+      });
+
+      if (result.success) {
+        console.log(pc.green(`✓ Targeted autowork on Issue #${issueNumber} completed successfully.\n`));
+      } else {
+        console.warn(pc.yellow(`⚠️  Targeted autowork on Issue #${issueNumber} completed with code ${result.exitCode}.\n`));
+      }
+    } catch (err: any) {
+      console.error(pc.red(`✗ Error in targeted autowork: ${err.message}`));
+    } finally {
+      isWorking = false;
+      state.status = isPaused ? 'paused' : 'idle';
+      state.activeRoutine = undefined;
+      state.activeTarget = undefined;
+      writeDaemonState(repoRoot, state);
+      updateTicker();
+
+      // Immediate post-autowork convergence sweep
+      if (!isStopping && routines.includes('peer-review')) {
+        const newPRCount = (await getPRsFn(repoRoot)).length;
+        if (newPRCount > 0) {
+          console.log(
+            pc.cyan(
+              `\n[${new Date().toLocaleTimeString()}] 🔄 Post-autowork convergence: Found ${newPRCount} ready PR(s). Initiating review sweep...`
+            )
+          );
+          await performReviewDrain();
+        }
+      }
+
+      if (isGracefulStopping) {
+        await handleStop();
+        return;
+      }
+
+      if (pendingRoutine && !isStopping) {
+        const next = pendingRoutine;
+        pendingRoutine = null;
+        console.log(pc.cyan(`\n[${new Date().toLocaleTimeString()}] ⚡ Executing queued routine: ${next}...`));
+        if (next === 'peer-review') {
+          await performReviewDrain();
+        } else if (next === 'autowork') {
+          await runAutoworkCheck();
+        }
+      }
+    }
+  };
+
   // Keyboard Controller setup
   const keyboard = new KeyboardController({
     stdin: options.stdin || process.stdin,
@@ -595,6 +735,110 @@ export async function runDaemonLoop(repoRoot: string, options: DaemonOptions = {
       console.log(pc.cyan(`\n[${new Date().toLocaleTimeString()}] ⚡ Triggering immediate Autowork scan on demand...`));
       await runAutoworkCheck();
     },
+    onTargetedReview: async () => {
+      if (isStopping || isGracefulStopping) return;
+      if (isWorking) {
+        clearTicker();
+        console.log(
+          pc.yellow(
+            `\n[${new Date().toLocaleTimeString()}] ⚠️  Targeted review prompts require idle state. Use 'r' to queue a scan pass instead.`
+          )
+        );
+        updateTicker();
+        return;
+      }
+
+      clearTicker();
+      keyboard.pause();
+      const rawInput = await promptTargetedInput(`\n${pc.cyan('Enter PR # to review (Esc/Enter to cancel):')} `, {
+        stdin: options.stdin || process.stdin,
+        stdout: process.stdout,
+      });
+      keyboard.resume();
+
+      if (!rawInput) {
+        console.log(pc.dim(`[${new Date().toLocaleTimeString()}] Targeted review cancelled.\n`));
+        updateTicker();
+        return;
+      }
+
+      const prNumber = parseNumericTarget(rawInput);
+      if (!prNumber) {
+        console.log(
+          pc.yellow(`[${new Date().toLocaleTimeString()}] ⚠️  Invalid PR number '${rawInput}'. Operation cancelled.\n`)
+        );
+        updateTicker();
+        return;
+      }
+
+      await runTargetedReview(prNumber);
+    },
+    onTargetedAutowork: async () => {
+      if (isStopping || isGracefulStopping) return;
+      if (isWorking) {
+        clearTicker();
+        console.log(
+          pc.yellow(
+            `\n[${new Date().toLocaleTimeString()}] ⚠️  Targeted autowork prompts require idle state. Use 'a' to queue a scan pass instead.`
+          )
+        );
+        updateTicker();
+        return;
+      }
+
+      clearTicker();
+      keyboard.pause();
+      const rawInput = await promptTargetedInput(`\n${pc.cyan('Enter Issue # to work (Esc/Enter to cancel):')} `, {
+        stdin: options.stdin || process.stdin,
+        stdout: process.stdout,
+      });
+      keyboard.resume();
+
+      if (!rawInput) {
+        console.log(pc.dim(`[${new Date().toLocaleTimeString()}] Targeted autowork cancelled.\n`));
+        updateTicker();
+        return;
+      }
+
+      const issueNumber = parseNumericTarget(rawInput);
+      if (!issueNumber) {
+        console.log(
+          pc.yellow(`[${new Date().toLocaleTimeString()}] ⚠️  Invalid Issue number '${rawInput}'. Operation cancelled.\n`)
+        );
+        updateTicker();
+        return;
+      }
+
+      await runTargetedAutowork(issueNumber);
+    },
+    onToggleVerbose: () => {
+      if (isStopping || isGracefulStopping) return;
+      options.verbose = !options.verbose;
+      clearTicker();
+      if (options.verbose) {
+        console.log(
+          pc.green(`\n[${new Date().toLocaleTimeString()}] 🔊 Verbose mode ENABLED (streaming tokens directly to terminal).`)
+        );
+      } else {
+        console.log(
+          pc.yellow(`\n[${new Date().toLocaleTimeString()}] 🔇 Verbose mode DISABLED (compact terminal spinner active).`)
+        );
+      }
+      updateTicker();
+    },
+    onTailLog: () => {
+      if (isStopping || isGracefulStopping) return;
+      clearTicker();
+      printDaemonLogTail(repoRoot, 20);
+      updateTicker();
+    },
+    onCleanWorktrees: async () => {
+      if (isStopping || isGracefulStopping) return;
+      clearTicker();
+      const result = await inspectAndCleanWorktrees(repoRoot);
+      printWorktreesInspection(result);
+      updateTicker();
+    },
     onPauseToggle: () => {
       if (isStopping || isGracefulStopping) return;
       isPaused = !isPaused;
@@ -603,7 +847,9 @@ export async function runDaemonLoop(repoRoot: string, options: DaemonOptions = {
         if (state.status !== 'working') state.status = 'paused';
         writeDaemonState(repoRoot, state);
         console.log(
-          pc.yellow(`\n[${new Date().toLocaleTimeString()}] ⏸️  Daemon polling paused. Automatic interval sweeps suspended. (Press 'p' to resume)`)
+          pc.yellow(
+            `\n[${new Date().toLocaleTimeString()}] ⏸️  Daemon polling paused. Automatic interval sweeps suspended. (Press 'p' to resume)`
+          )
         );
       } else {
         if (state.status !== 'working') state.status = 'idle';
@@ -622,6 +868,7 @@ export async function runDaemonLoop(repoRoot: string, options: DaemonOptions = {
         state,
         pendingRoutine,
         activeWorktrees,
+        verbose: options.verbose,
       });
       updateTicker();
     },

@@ -27,6 +27,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased] - 2026-09-09
 
 ### Added
+- **daemon:** Targeted execution prompts and runtime utility hotkeys ([#89](https://github.com/juliendurandeu/jonah-fleet/issues/89)):
+  - Added targeted execution hotkeys: `R` (prompts for PR # and runs targeted peer-review) and `A` (prompts for Issue # and runs targeted autowork).
+  - Pauses raw mode safely during targeted prompt input, validates numeric identifiers (`42`, `#42`, `PR #42`, `Issue #89`), and provides clean cancellation on Esc/empty Enter.
+  - Added runtime utility hotkeys: `v` (live verbosity mode toggling), `l` (print last 20 lines of `.jonah-fleet/daemon.log`), and `w` (inspect and clean stale worktrees on demand).
+  - Updated keybindings cheat-sheet and daemon status summary with verbosity mode indicators.
+  - Unit tests in `tests/daemon-keys.test.ts`.
 - **daemon:** Interactive keyboard controller with idle hotkeys and execution queue ([#88](https://github.com/juliendurandeu/jonah-fleet/issues/88)):
   - Captures single-keypress inputs in foreground daemon mode without requiring Enter (`process.stdin.setRawMode`).
   - Added hotkeys: `r` (immediate peer-review scan), `a` (immediate autowork scan), `p` (pause/resume automatic polling), `s` (daemon status summary), `q` (graceful shutdown), `Ctrl+C` (force stop), and `?`/`h` (interactive cheat-sheet).

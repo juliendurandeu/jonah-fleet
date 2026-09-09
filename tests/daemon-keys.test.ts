@@ -79,28 +79,88 @@ describe('KeyboardController', () => {
     expect(() => controller.stop()).not.toThrow();
   });
 
-  it('routes "r" hotkey to onReview callback', () => {
+  it('routes "r" hotkey to onReview callback and "R" to onTargetedReview callback', () => {
     const onReview = vi.fn();
-    const controller = new KeyboardController({ stdin: mockStdin as any, onReview });
+    const onTargetedReview = vi.fn();
+    const controller = new KeyboardController({ stdin: mockStdin as any, onReview, onTargetedReview });
     controller.start();
 
+    // Lowercase 'r'
     mockStdin.emit('keypress', 'r', { name: 'r', ctrl: false, meta: false, shift: false });
     expect(onReview).toHaveBeenCalledTimes(1);
+    expect(onTargetedReview).not.toHaveBeenCalled();
 
-    // Also handles string fallback when key.name is undefined
-    mockStdin.emit('keypress', 'r', undefined);
-    expect(onReview).toHaveBeenCalledTimes(2);
+    // Uppercase 'R' with shift
+    mockStdin.emit('keypress', 'R', { name: 'r', ctrl: false, meta: false, shift: true });
+    expect(onTargetedReview).toHaveBeenCalledTimes(1);
+
+    // Uppercase 'R' raw string
+    mockStdin.emit('keypress', 'R', undefined);
+    expect(onTargetedReview).toHaveBeenCalledTimes(2);
 
     controller.stop();
   });
 
-  it('routes "a" hotkey to onAutowork callback', () => {
+  it('routes "a" hotkey to onAutowork callback and "A" to onTargetedAutowork callback', () => {
     const onAutowork = vi.fn();
-    const controller = new KeyboardController({ stdin: mockStdin as any, onAutowork });
+    const onTargetedAutowork = vi.fn();
+    const controller = new KeyboardController({ stdin: mockStdin as any, onAutowork, onTargetedAutowork });
     controller.start();
 
+    // Lowercase 'a'
     mockStdin.emit('keypress', 'a', { name: 'a', ctrl: false, meta: false, shift: false });
     expect(onAutowork).toHaveBeenCalledTimes(1);
+    expect(onTargetedAutowork).not.toHaveBeenCalled();
+
+    // Uppercase 'A' with shift
+    mockStdin.emit('keypress', 'A', { name: 'a', ctrl: false, meta: false, shift: true });
+    expect(onTargetedAutowork).toHaveBeenCalledTimes(1);
+
+    // Uppercase 'A' raw string
+    mockStdin.emit('keypress', 'A', undefined);
+    expect(onTargetedAutowork).toHaveBeenCalledTimes(2);
+
+    controller.stop();
+  });
+
+  it('routes "v" hotkey to onToggleVerbose callback', () => {
+    const onToggleVerbose = vi.fn();
+    const controller = new KeyboardController({ stdin: mockStdin as any, onToggleVerbose });
+    controller.start();
+
+    mockStdin.emit('keypress', 'v', { name: 'v', ctrl: false, meta: false, shift: false });
+    expect(onToggleVerbose).toHaveBeenCalledTimes(1);
+
+    mockStdin.emit('keypress', 'V', { name: 'v', ctrl: false, meta: false, shift: true });
+    expect(onToggleVerbose).toHaveBeenCalledTimes(2);
+
+    controller.stop();
+  });
+
+  it('routes "l" hotkey to onTailLog callback', () => {
+    const onTailLog = vi.fn();
+    const controller = new KeyboardController({ stdin: mockStdin as any, onTailLog });
+    controller.start();
+
+    mockStdin.emit('keypress', 'l', { name: 'l', ctrl: false, meta: false, shift: false });
+    expect(onTailLog).toHaveBeenCalledTimes(1);
+
+    mockStdin.emit('keypress', 'L', { name: 'l', ctrl: false, meta: false, shift: true });
+    expect(onTailLog).toHaveBeenCalledTimes(2);
+
+    controller.stop();
+  });
+
+  it('routes "w" hotkey to onCleanWorktrees callback', () => {
+    const onCleanWorktrees = vi.fn();
+    const controller = new KeyboardController({ stdin: mockStdin as any, onCleanWorktrees });
+    controller.start();
+
+    mockStdin.emit('keypress', 'w', { name: 'w', ctrl: false, meta: false, shift: false });
+    expect(onCleanWorktrees).toHaveBeenCalledTimes(1);
+
+    mockStdin.emit('keypress', 'W', { name: 'w', ctrl: false, meta: false, shift: true });
+    expect(onCleanWorktrees).toHaveBeenCalledTimes(2);
 
     controller.stop();
   });
@@ -167,12 +227,33 @@ describe('KeyboardController', () => {
     controller.stop();
   });
 
+  it('supports pause and resume to temporarily suspend hotkey handling', () => {
+    const onReview = vi.fn();
+    const controller = new KeyboardController({ stdin: mockStdin as any, onReview });
+    controller.start();
+
+    controller.pause();
+    mockStdin.emit('keypress', 'r', { name: 'r' });
+    expect(onReview).not.toHaveBeenCalled();
+
+    controller.resume();
+    mockStdin.emit('keypress', 'r', { name: 'r' });
+    expect(onReview).toHaveBeenCalledTimes(1);
+
+    controller.stop();
+  });
+
   it('ignores unrelated keypresses safely', () => {
     const callbacks = {
       onReview: vi.fn(),
+      onTargetedReview: vi.fn(),
       onAutowork: vi.fn(),
+      onTargetedAutowork: vi.fn(),
       onPauseToggle: vi.fn(),
       onStatus: vi.fn(),
+      onToggleVerbose: vi.fn(),
+      onTailLog: vi.fn(),
+      onCleanWorktrees: vi.fn(),
       onGracefulStop: vi.fn(),
       onForceStop: vi.fn(),
       onHelp: vi.fn(),
@@ -385,5 +466,167 @@ describe('Daemon Loop Interactive Integration', () => {
 
     expect(exitCleanedUp).toBe(true);
     controller.stop();
+  });
+
+  it('handles targeted review and autowork dispatching when idle vs busy', async () => {
+    let isWorking = false;
+    const targetedReviewCalls: number[] = [];
+    const targetedAutoworkCalls: number[] = [];
+    const warnings: string[] = [];
+
+    const controller = new KeyboardController({
+      stdin: mockStdin as any,
+      onTargetedReview: () => {
+        if (isWorking) {
+          warnings.push('Targeted review requires idle state');
+          return;
+        }
+        targetedReviewCalls.push(91);
+      },
+      onTargetedAutowork: () => {
+        if (isWorking) {
+          warnings.push('Targeted autowork requires idle state');
+          return;
+        }
+        targetedAutoworkCalls.push(89);
+      },
+    });
+    controller.start();
+
+    // Idle: triggers targeted review
+    mockStdin.emit('keypress', 'R', { name: 'r', shift: true });
+    expect(targetedReviewCalls).toEqual([91]);
+
+    // Idle: triggers targeted autowork
+    mockStdin.emit('keypress', 'A', { name: 'a', shift: true });
+    expect(targetedAutoworkCalls).toEqual([89]);
+
+    // Busy: warns and does not dispatch
+    isWorking = true;
+    mockStdin.emit('keypress', 'R', { name: 'r', shift: true });
+    mockStdin.emit('keypress', 'A', { name: 'a', shift: true });
+    expect(warnings).toEqual([
+      'Targeted review requires idle state',
+      'Targeted autowork requires idle state',
+    ]);
+    expect(targetedReviewCalls).toEqual([91]);
+    expect(targetedAutoworkCalls).toEqual([89]);
+
+    controller.stop();
+  });
+});
+
+describe('parseNumericTarget', () => {
+  it('parses valid positive integer targets in various formats', async () => {
+    const { parseNumericTarget } = await import('../src/lib/daemon-keys.js');
+
+    expect(parseNumericTarget('42')).toBe(42);
+    expect(parseNumericTarget('  105  ')).toBe(105);
+    expect(parseNumericTarget('#88')).toBe(88);
+    expect(parseNumericTarget('PR #91')).toBe(91);
+    expect(parseNumericTarget('pr 91')).toBe(91);
+    expect(parseNumericTarget('Issue #89')).toBe(89);
+    expect(parseNumericTarget('issue 89')).toBe(89);
+    expect(parseNumericTarget('#1')).toBe(1);
+  });
+
+  it('returns null for empty, non-numeric, zero, or negative inputs', async () => {
+    const { parseNumericTarget } = await import('../src/lib/daemon-keys.js');
+
+    expect(parseNumericTarget('')).toBeNull();
+    expect(parseNumericTarget('   ')).toBeNull();
+    expect(parseNumericTarget('abc')).toBeNull();
+    expect(parseNumericTarget('PR abc')).toBeNull();
+    expect(parseNumericTarget('0')).toBeNull();
+    expect(parseNumericTarget('#0')).toBeNull();
+    expect(parseNumericTarget('-5')).toBeNull();
+  });
+});
+
+describe('promptTargetedInput', () => {
+  it('reads numeric input string and returns trimmed value', async () => {
+    const { promptTargetedInput } = await import('../src/lib/daemon-keys.js');
+    const stdin = new EventEmitter() as any;
+    const stdout = { write: vi.fn() };
+
+    const promptPromise = promptTargetedInput('Enter PR #: ', { stdin, stdout });
+    stdin.emit('data', '91\n');
+
+    const result = await promptPromise;
+    expect(result).toBe('91');
+    expect(stdout.write).toHaveBeenCalledWith('Enter PR #: ');
+  });
+
+  it('returns null when user submits empty line or whitespace', async () => {
+    const { promptTargetedInput } = await import('../src/lib/daemon-keys.js');
+    const stdin = new EventEmitter() as any;
+    const stdout = { write: vi.fn() };
+
+    const promptPromise = promptTargetedInput('Enter Issue #: ', { stdin, stdout });
+    stdin.emit('data', '   \n');
+
+    const result = await promptPromise;
+    expect(result).toBeNull();
+  });
+
+  it('returns null when user presses Esc (\\u001b)', async () => {
+    const { promptTargetedInput } = await import('../src/lib/daemon-keys.js');
+    const stdin = new EventEmitter() as any;
+    const stdout = { write: vi.fn() };
+
+    const promptPromise = promptTargetedInput('Enter PR #: ', { stdin, stdout });
+    stdin.emit('data', '\u001b');
+
+    const result = await promptPromise;
+    expect(result).toBeNull();
+  });
+});
+
+describe('Daemon Log Tail and Worktree Inspection', () => {
+  let tmpRepo: string;
+
+  beforeEach(() => {
+    tmpRepo = fs.mkdtempSync(path.join(os.tmpdir(), 'jonah-fleet-tail-test-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpRepo, { recursive: true, force: true });
+  });
+
+  it('returns empty array when daemon.log does not exist', async () => {
+    const { getDaemonLogTail } = await import('../src/lib/daemon-keys.js');
+    expect(getDaemonLogTail(tmpRepo, 20)).toEqual([]);
+  });
+
+  it('returns the last N lines of daemon.log correctly', async () => {
+    const { getDaemonLogTail, printDaemonLogTail } = await import('../src/lib/daemon-keys.js');
+    const logDir = path.join(tmpRepo, '.jonah-fleet');
+    fs.mkdirSync(logDir, { recursive: true });
+    const logLines = Array.from({ length: 30 }, (_, i) => `Log line ${i + 1}`);
+    fs.writeFileSync(path.join(logDir, 'daemon.log'), logLines.join('\n') + '\n', 'utf8');
+
+    const tail = getDaemonLogTail(tmpRepo, 20);
+    expect(tail.length).toBe(20);
+    expect(tail[0]).toBe('Log line 11');
+    expect(tail[19]).toBe('Log line 30');
+
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    expect(() => printDaemonLogTail(tmpRepo, 20)).not.toThrow();
+    expect(consoleSpy).toHaveBeenCalled();
+    consoleSpy.mockRestore();
+  });
+
+  it('inspects worktrees and prints summary card', async () => {
+    const { inspectAndCleanWorktrees, printWorktreesInspection } = await import(
+      '../src/lib/daemon-keys.js'
+    );
+    const result = await inspectAndCleanWorktrees(tmpRepo);
+    expect(result.active).toEqual([]);
+    expect(typeof result.cleaned).toBe('number');
+
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    expect(() => printWorktreesInspection(result)).not.toThrow();
+    expect(consoleSpy).toHaveBeenCalled();
+    consoleSpy.mockRestore();
   });
 });

@@ -5,6 +5,22 @@ All notable changes to `jonah-fleet` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0](https://github.com/juliendurandeu/jonah-fleet/compare/jonah-fleet-v1.6.0...jonah-fleet-v1.7.0) (2026-09-09)
+
+
+### Features
+
+* **daemon:** interactive keyboard controller with idle hotkeys and execution queue ([#91](https://github.com/juliendurandeu/jonah-fleet/issues/91)) ([3536e9a](https://github.com/juliendurandeu/jonah-fleet/commit/3536e9ab38849550ad7c6d846e6a2488b187f490))
+* **daemon:** rotating status-line tips and narrow-width terminal guardrails ([#90](https://github.com/juliendurandeu/jonah-fleet/issues/90)) ([#93](https://github.com/juliendurandeu/jonah-fleet/issues/93)) ([2efdfbf](https://github.com/juliendurandeu/jonah-fleet/commit/2efdfbf45c18a746ed1ce4ed7338e2b73ab9f352))
+* **daemon:** targeted execution prompts ('R' and 'A') and utility hotkeys ('v', 'l', 'w') ([#92](https://github.com/juliendurandeu/jonah-fleet/issues/92)) ([00c45f4](https://github.com/juliendurandeu/jonah-fleet/commit/00c45f4563049c86f1dbe956eb4e3f8b634c7918))
+* **manifest:** support model and reasoning effort profiles in agents-manifest.json ([#3](https://github.com/juliendurandeu/jonah-fleet/issues/3)) ([#85](https://github.com/juliendurandeu/jonah-fleet/issues/85)) ([ff2f654](https://github.com/juliendurandeu/jonah-fleet/commit/ff2f654d73d7d49b21379264216e98434e2f1f91))
+* **radar:** expand upstream radar to track funes alongside symphony for agent memory intelligence ([#84](https://github.com/juliendurandeu/jonah-fleet/issues/84)) ([4d8e127](https://github.com/juliendurandeu/jonah-fleet/commit/4d8e1273c48895d995d792789eb4a4baef968549))
+
+
+### Bug Fixes
+
+* **daemon:** avoid TDZ ReferenceError on graceful stop and signal handlers ([#94](https://github.com/juliendurandeu/jonah-fleet/issues/94)) ([7ca5fb7](https://github.com/juliendurandeu/jonah-fleet/commit/7ca5fb7a0849ee9babc8165253f9566c6c51963c))
+
 ## [1.6.0](https://github.com/juliendurandeu/jonah-fleet/compare/jonah-fleet-v1.5.0...jonah-fleet-v1.6.0) (2026-09-08)
 
 

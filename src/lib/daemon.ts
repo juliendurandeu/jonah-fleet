@@ -368,6 +368,9 @@ export async function runDaemonLoop(repoRoot: string, options: DaemonOptions = {
   let isWorking = false;
   let isPaused = false;
   let pendingRoutine: 'peer-review' | 'autowork' | null = null;
+  let keyboard: KeyboardController | undefined;
+  let tickerInterval: NodeJS.Timeout | undefined;
+  let stopResolve: (() => void) | undefined;
 
   // Set up decoupled intervals
   const reviewIntervalMs = reviewInterval * 60 * 1000;
@@ -404,12 +407,18 @@ export async function runDaemonLoop(repoRoot: string, options: DaemonOptions = {
   const handleStop = async () => {
     if (isStopping) return;
     isStopping = true;
-    keyboard.stop();
-    clearInterval(tickerInterval);
+    process.removeListener('SIGINT', handleStop);
+    process.removeListener('SIGTERM', handleStop);
+    keyboard?.stop();
+    if (tickerInterval) {
+      clearInterval(tickerInterval);
+      tickerInterval = undefined;
+    }
     clearTicker();
     console.log(pc.yellow(`\nStopping local agent daemon...`));
     clearDaemonState(repoRoot);
     await cleanupStaleWorktrees(repoRoot);
+    stopResolve?.();
     process.exit(0);
   };
 
@@ -694,7 +703,7 @@ export async function runDaemonLoop(repoRoot: string, options: DaemonOptions = {
   };
 
   // Keyboard Controller setup
-  const keyboard = new KeyboardController({
+  keyboard = new KeyboardController({
     stdin: options.stdin || process.stdin,
     onReview: async () => {
       if (isStopping || isGracefulStopping) return;
@@ -740,12 +749,12 @@ export async function runDaemonLoop(repoRoot: string, options: DaemonOptions = {
       }
 
       clearTicker();
-      keyboard.pause();
+      keyboard?.pause();
       const rawInput = await promptTargetedInput(`\n${pc.cyan('Enter PR # to review (Esc/Enter to cancel):')} `, {
         stdin: options.stdin || process.stdin,
         stdout: process.stdout,
       });
-      keyboard.resume();
+      keyboard?.resume();
 
       if (!rawInput) {
         console.log(pc.dim(`[${new Date().toLocaleTimeString()}] Targeted review cancelled.\n`));
@@ -778,12 +787,12 @@ export async function runDaemonLoop(repoRoot: string, options: DaemonOptions = {
       }
 
       clearTicker();
-      keyboard.pause();
+      keyboard?.pause();
       const rawInput = await promptTargetedInput(`\n${pc.cyan('Enter Issue # to work (Esc/Enter to cancel):')} `, {
         stdin: options.stdin || process.stdin,
         stdout: process.stdout,
       });
-      keyboard.resume();
+      keyboard?.resume();
 
       if (!rawInput) {
         console.log(pc.dim(`[${new Date().toLocaleTimeString()}] Targeted autowork cancelled.\n`));
@@ -888,7 +897,7 @@ export async function runDaemonLoop(repoRoot: string, options: DaemonOptions = {
     },
   });
 
-  keyboard.start();
+  keyboard?.start();
 
   // Run initial checks on start: drain review queue first, then move to autowork
   if (routines.includes('peer-review')) {
@@ -897,6 +906,8 @@ export async function runDaemonLoop(repoRoot: string, options: DaemonOptions = {
   if (!isStopping && !isGracefulStopping && routines.includes('autowork')) {
     await runAutoworkCheck();
   }
+
+  if (isStopping) return;
 
   // Set up 1-second watchdog tick loop for decoupled intervals and ticker
   const tick = async () => {
@@ -917,8 +928,10 @@ export async function runDaemonLoop(repoRoot: string, options: DaemonOptions = {
     updateTicker();
   };
 
-  const tickerInterval = setInterval(tick, 1000);
+  tickerInterval = setInterval(tick, 1000);
 
   // Keep process alive
-  await new Promise<void>(() => {});
+  await new Promise<void>((resolve) => {
+    stopResolve = resolve;
+  });
 }

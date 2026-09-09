@@ -26,6 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - 2026-09-09
 
+### Fixed
+- **daemon:** Fix `ReferenceError: Cannot access 'tickerInterval' before initialization` on graceful stop (`q`) or SIGINT / SIGTERM during initial startup checks or routine executions by declaring interval and keyboard handles in outer scope before shutdown handlers.
+
 ### Added
 - **daemon:** Rotating status-line tips and narrow-width terminal guardrails ([#90](https://github.com/juliendurandeu/jonah-fleet/issues/90)):
   - Added smooth 4-second cycling through all 11 keybinding tips in the foreground daemon's idle status line to promote frictionless hotkey discoverability.

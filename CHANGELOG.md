@@ -5,6 +5,19 @@ All notable changes to `jonah-fleet` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0](https://github.com/juliendurandeu/jonah-fleet/compare/jonah-fleet-v1.7.0...jonah-fleet-v1.8.0) (2026-09-09)
+
+
+### Features
+
+* **labels:** prune unused labels via CLI and housekeeping routine ([#99](https://github.com/juliendurandeu/jonah-fleet/issues/99)) ([b4a3ba2](https://github.com/juliendurandeu/jonah-fleet/commit/b4a3ba2f70bd2b899a02d33f6b3331eb6ec990c2)), closes [#97](https://github.com/juliendurandeu/jonah-fleet/issues/97)
+
+
+### Bug Fixes
+
+* **prompts:** prevent stray issues via tracking and closure guardrails ([#102](https://github.com/juliendurandeu/jonah-fleet/issues/102)) ([6e9b1ec](https://github.com/juliendurandeu/jonah-fleet/commit/6e9b1ec12e85b5fc98f6decf43cd4f5888d790d6))
+* **workflows:** move concurrency to job level to avoid self-cancelling on skipped triggers ([#100](https://github.com/juliendurandeu/jonah-fleet/issues/100)) ([#101](https://github.com/juliendurandeu/jonah-fleet/issues/101)) ([3710bac](https://github.com/juliendurandeu/jonah-fleet/commit/3710bacedffeffcd90434756f3bae1c1dd323017))
+
 ## [1.7.0](https://github.com/juliendurandeu/jonah-fleet/compare/jonah-fleet-v1.6.0...jonah-fleet-v1.7.0) (2026-09-09)
 
 

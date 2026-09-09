@@ -13,6 +13,7 @@ import {
   writeDaemonState,
   readDaemonState,
   getDaemonStatePath,
+  runDaemonLoop,
 } from '../src/lib/daemon.js';
 
 class MockStdin extends EventEmitter {
@@ -787,6 +788,66 @@ describe('Rotating Status-Line Tips & Viewport Width Guardrails', () => {
       const plain = stripAnsi(line);
       expect(plain.length).toBeLessThanOrEqual(cols - 2);
     }
+  });
+
+  describe('runDaemonLoop graceful shutdown', () => {
+    let tmpRepo: string;
+
+    beforeEach(() => {
+      tmpRepo = fs.mkdtempSync(path.join(os.tmpdir(), 'jonah-fleet-daemon-loop-test-'));
+    });
+
+    afterEach(() => {
+      fs.rmSync(tmpRepo, { recursive: true, force: true });
+      vi.restoreAllMocks();
+    });
+
+    it('gracefully handles "q" pressed during routine execution without TDZ tickerInterval ReferenceError', async () => {
+      const exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => {}) as any);
+      const mockStdin = new MockStdin();
+
+      let routineStarted = false;
+
+      const runRoutine = async () => {
+        routineStarted = true;
+        // User presses 'q' while routine is working
+        mockStdin.emit('keypress', 'q', { name: 'q', ctrl: false, meta: false, shift: false });
+        return { success: true };
+      };
+
+      await runDaemonLoop(tmpRepo, {
+        stdin: mockStdin,
+        routines: ['peer-review'],
+        getPRs: async () => [{ number: 101, headRefName: 'feat/test', title: 'Test PR' }],
+        runRoutine,
+      });
+
+      expect(routineStarted).toBe(true);
+      expect(exitSpy).toHaveBeenCalledWith(0);
+      expect(readDaemonState(tmpRepo)).toBeNull();
+    });
+
+    it('gracefully handles "q" pressed when daemon is idle and ticker is active', async () => {
+      const exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => {}) as any);
+      const mockStdin = new MockStdin();
+
+      const loopPromise = runDaemonLoop(tmpRepo, {
+        stdin: mockStdin,
+        routines: ['peer-review'],
+        getPRs: async () => [],
+      });
+
+      // Give event loop a cycle so initial check finishes and daemon becomes idle
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      // Press 'q' while idle
+      mockStdin.emit('keypress', 'q', { name: 'q', ctrl: false, meta: false, shift: false });
+
+      await loopPromise;
+
+      expect(exitSpy).toHaveBeenCalledWith(0);
+      expect(readDaemonState(tmpRepo)).toBeNull();
+    });
   });
 });
 

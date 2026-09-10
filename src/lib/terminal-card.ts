@@ -1,7 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import pc from 'picocolors';
+
+const execFileAsync = promisify(execFile);
 
 export interface SummaryCardOptions {
   routine: string;
@@ -136,6 +139,36 @@ export function fetchTargetTitle(repoRoot: string, target: string): string | nul
         encoding: 'utf8',
         stdio: ['ignore', 'pipe', 'ignore'],
         timeout: 4000,
+      });
+      return stdout.trim() || null;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+/**
+ * Asynchronously fetches PR or issue title using GitHub CLI with a tight timeout.
+ */
+export async function fetchTargetTitleAsync(repoRoot: string, target: string): Promise<string | null> {
+  try {
+    const prMatch = target.match(/PR\s*#?(\d+)/i);
+    if (prMatch) {
+      const { stdout } = await execFileAsync('gh', ['pr', 'view', prMatch[1], '--json', 'title', '-q', '.title'], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+        timeout: 3000,
+      });
+      return stdout.trim() || null;
+    }
+
+    const issueMatch = target.match(/Issue\s*#?(\d+)/i);
+    if (issueMatch) {
+      const { stdout } = await execFileAsync('gh', ['issue', 'view', issueMatch[1], '--json', 'title', '-q', '.title'], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+        timeout: 3000,
       });
       return stdout.trim() || null;
     }
@@ -404,6 +437,48 @@ export function detectClaimedPR(chunk: string): string | null {
   if (ghPrMatch) return `PR #${ghPrMatch[1]}`;
 
   return null;
+}
+
+/**
+ * Strips conventional commit prefixes and trailing issue references,
+ * truncating title to fit cleanly within the terminal spinner budget.
+ */
+export function cleanTargetTitle(title?: string | null, maxLength: number = 28): string {
+  if (!title) return '';
+  let cleaned = title.trim();
+
+  // Strip conventional commit prefix: e.g. "feat(runner): ", "fix: ", "chore(deps)!: "
+  cleaned = cleaned.replace(/^(?:feat|fix|chore|docs|refactor|test|perf|style|ci|build)(?:\([^)]+\))?!?!?:\s*/i, '');
+
+  // Strip trailing issue references: e.g. " (#96)" or " (#96) (#98)"
+  cleaned = cleaned.replace(/(?:\s*\(\s*#\d+\s*\))+$/, '');
+
+  cleaned = cleaned.trim();
+  if (!cleaned) return '';
+
+  if (cleaned.length > maxLength) {
+    const slice = cleaned.slice(0, maxLength);
+    const lastSpace = slice.lastIndexOf(' ');
+    // If there's a space reasonably close to the boundary (within 8 chars), break on word boundary
+    if (lastSpace > maxLength - 8) {
+      return slice.slice(0, lastSpace).trimEnd() + '...';
+    }
+    return slice.trimEnd() + '...';
+  }
+  return cleaned;
+}
+
+/**
+ * Formats a target label (e.g. "PR #98" or "Issue #96") with an optional title snippet.
+ * Output: "PR #98 (stream real-time...)" or fallback to baseLabel if no title available.
+ */
+export function formatTargetLabel(baseLabel: string, title?: string | null, maxLength: number = 28): string {
+  if (!title) return baseLabel;
+  // If baseLabel already has parenthesized snippet, strip it first
+  const cleanBase = baseLabel.replace(/\s*\([^)]*\)$/, '').trim();
+  const cleanedTitle = cleanTargetTitle(title, maxLength);
+  if (!cleanedTitle) return cleanBase;
+  return `${cleanBase} (${cleanedTitle})`;
 }
 
 /**

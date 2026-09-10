@@ -94,6 +94,20 @@ describe('Local Routine Runner', () => {
     expect(result.output).toContain('[DRY RUN]');
   });
 
+  it('accepts title option in runLocalRoutine and formats target label with title', async () => {
+    const result = await runLocalRoutine({
+      targetDir: tmpRepo,
+      routine: 'peer-review',
+      pr: 98,
+      title: 'feat(runner): stream real-time granular activity (#96)',
+      dryRun: true,
+      noWorktree: true,
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.output).toContain('[DRY RUN]');
+  });
+
   describe('LineBufferedStreamParser', () => {
     it('buffers chunks across line splits correctly', () => {
       const lines: string[] = [];

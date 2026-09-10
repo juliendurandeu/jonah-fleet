@@ -9,6 +9,9 @@ import {
   detectClaimedIssue,
   detectClaimedPR,
   formatActionDescription,
+  cleanTargetTitle,
+  formatTargetLabel,
+  fetchTargetTitleAsync,
   renderSummaryCard,
   renderErrorCard,
 } from './terminal-card.js';
@@ -19,6 +22,7 @@ export interface RunLocalRoutineOptions {
   routine: string;
   issue?: string | number;
   pr?: string | number;
+  title?: string;
   model?: string;
   printTimeout?: string;
   noWorktree?: boolean;
@@ -337,17 +341,39 @@ export async function runLocalRoutine(options: RunLocalRoutineOptions): Promise<
   fs.mkdirSync(logDir, { recursive: true });
   const logFilePath = path.join(logDir, 'daemon.log');
 
-  let targetLabel = options.pr
+  let targetTitle: string | undefined = options.title;
+  const baseTarget = options.pr
     ? `PR #${options.pr}`
     : options.issue
       ? `Issue #${options.issue}`
-      : routine;
+      : undefined;
+
+  let targetLabel = baseTarget
+    ? formatTargetLabel(baseTarget, targetTitle)
+    : routine;
   let dynamicTargetDetected = Boolean(options.pr || options.issue);
 
   let activePhase = 'Starting session...';
+  let lastActionDesc: string | null = null;
   const spinner = !options.verbose ? new TerminalSpinner() : null;
   if (spinner) {
     spinner.start(`${targetLabel}: ${activePhase}`);
+  }
+
+  // If target was supplied via options but without a title, fetch title in background
+  if (baseTarget && !targetTitle) {
+    fetchTargetTitleAsync(targetDir, baseTarget)
+      .then((fetchedTitle) => {
+        if (fetchedTitle && !targetTitle) {
+          targetTitle = fetchedTitle;
+          targetLabel = formatTargetLabel(baseTarget, targetTitle);
+          options.onTargetDetected?.(targetLabel);
+          if (spinner) {
+            spinner.update(`${targetLabel}: ${lastActionDesc || activePhase}`);
+          }
+        }
+      })
+      .catch(() => {});
   }
 
   // Cleanup handler on process interruption
@@ -374,8 +400,21 @@ export async function runLocalRoutine(options: RunLocalRoutineOptions): Promise<
       targetLabel = detected;
       options.onTargetDetected?.(detected);
       if (spinner) {
-        spinner.update(`${targetLabel}: ${activePhase}`);
+        spinner.update(`${targetLabel}: ${lastActionDesc || activePhase}`);
       }
+
+      fetchTargetTitleAsync(executionDir, detected)
+        .then((fetchedTitle) => {
+          if (fetchedTitle) {
+            targetTitle = fetchedTitle;
+            targetLabel = formatTargetLabel(detected, fetchedTitle);
+            options.onTargetDetected?.(targetLabel);
+            if (spinner) {
+              spinner.update(`${targetLabel}: ${lastActionDesc || activePhase}`);
+            }
+          }
+        })
+        .catch(() => {});
     }
   };
 
@@ -391,6 +430,7 @@ export async function runLocalRoutine(options: RunLocalRoutineOptions): Promise<
 
           if (su.state === 'ACTIVE') {
             const actionDesc = formatActionDescription(toolName, toolParams);
+            lastActionDesc = actionDesc;
             if (spinner) {
               spinner.update(`${targetLabel}: ${actionDesc}`);
             }
@@ -402,6 +442,7 @@ export async function runLocalRoutine(options: RunLocalRoutineOptions): Promise<
               if (formatted) console.log(formatted);
             }
           } else if (su.state === 'DONE') {
+            lastActionDesc = null;
             if (su.tool_info?.output) {
               checkTargetDetection(su.tool_info.output);
             }
@@ -419,7 +460,8 @@ export async function runLocalRoutine(options: RunLocalRoutineOptions): Promise<
             accumulatedOutput += su.text_delta;
             checkTargetDetection(su.text_delta);
             const newPhase = detectActivePhase(su.text_delta, activePhase);
-            if (newPhase !== activePhase) {
+            if (newPhase !== activePhase || lastActionDesc) {
+              lastActionDesc = null;
               activePhase = newPhase;
               if (spinner) {
                 spinner.update(`${targetLabel}: ${activePhase}`);
@@ -458,6 +500,7 @@ export async function runLocalRoutine(options: RunLocalRoutineOptions): Promise<
       if (options.verbose) {
         console.log(line);
       } else if (spinner) {
+        lastActionDesc = null;
         const newPhase = detectActivePhase(line, activePhase);
         if (newPhase !== activePhase) {
           activePhase = newPhase;
@@ -472,6 +515,7 @@ export async function runLocalRoutine(options: RunLocalRoutineOptions): Promise<
     if (options.verbose) {
       console.error(pc.dim(`[stderr] ${line}`));
     } else if (spinner) {
+      lastActionDesc = null;
       const newPhase = detectActivePhase(line, activePhase);
       if (newPhase !== activePhase) {
         activePhase = newPhase;
@@ -540,10 +584,12 @@ export async function runLocalRoutine(options: RunLocalRoutineOptions): Promise<
   // Render Card if not in verbose mode and showCard is not disabled
   if (options.showCard !== false && !options.verbose) {
     const durationMs = Date.now() - startTime;
+    const prMatch = targetLabel.match(/PR\s*#?(\d+)/i);
+    const issueMatch = targetLabel.match(/Issue\s*#?(\d+)/i);
     const effectiveIssue =
-      options.issue || (targetLabel.startsWith('Issue #') ? targetLabel.replace('Issue #', '') : undefined);
+      options.issue || (issueMatch ? issueMatch[1] : undefined);
     const effectivePR =
-      options.pr || (targetLabel.startsWith('PR #') ? targetLabel.replace('PR #', '') : undefined);
+      options.pr || (prMatch ? prMatch[1] : undefined);
 
     if (exitCode === 0) {
       console.log(
@@ -554,6 +600,7 @@ export async function runLocalRoutine(options: RunLocalRoutineOptions): Promise<
             repoRoot: targetDir,
             issue: effectiveIssue,
             pr: effectivePR,
+            title: targetTitle,
             durationMs,
           }) +
           '\n'

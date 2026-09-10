@@ -14,6 +14,9 @@ import {
   renderErrorCard,
   TerminalSpinner,
   formatActionDescription,
+  cleanTargetTitle,
+  formatTargetLabel,
+  fetchTargetTitleAsync,
   stripAnsi,
   truncateAnsi,
 } from '../src/lib/terminal-card.js';
@@ -224,6 +227,62 @@ The build is completing. Continuing shortly.
 
     it('returns null when no PR is referenced', () => {
       expect(detectClaimedPR('Scanning open pull requests...')).toBeNull();
+    });
+  });
+
+  describe('cleanTargetTitle & formatTargetLabel', () => {
+    it('strips conventional commit prefixes and trailing issue references', () => {
+      expect(cleanTargetTitle('feat(runner): stream real-time granular activity (#96)')).toBe(
+        'stream real-time granular...'
+      );
+      expect(cleanTargetTitle('fix: resolve critical race condition (#12) (#14)')).toBe(
+        'resolve critical race...'
+      );
+      expect(cleanTargetTitle('chore(deps)!: bump vitest dependency')).toBe(
+        'bump vitest dependency'
+      );
+      expect(cleanTargetTitle('docs: update README documentation')).toBe(
+        'update README documentation'
+      );
+    });
+
+    it('retains non-conventional title words and trims whitespace', () => {
+      expect(cleanTargetTitle('Fix login button alignment')).toBe('Fix login button alignment');
+      expect(cleanTargetTitle('  improve mobile performance  ')).toBe('improve mobile performance');
+    });
+
+    it('handles empty, null, or undefined titles safely', () => {
+      expect(cleanTargetTitle(undefined)).toBe('');
+      expect(cleanTargetTitle(null)).toBe('');
+      expect(cleanTargetTitle('')).toBe('');
+      expect(cleanTargetTitle('   ')).toBe('');
+    });
+
+    it('formats target label with clean title snippet in parentheses', () => {
+      expect(
+        formatTargetLabel('PR #98', 'feat(runner): stream real-time granular activity to foreground daemon spinner (#96)')
+      ).toBe('PR #98 (stream real-time granular...)');
+
+      expect(formatTargetLabel('Issue #96', 'fix: resolve race condition in daemon')).toBe(
+        'Issue #96 (resolve race condition in...)'
+      );
+    });
+
+    it('falls back to base label when title is missing or empty', () => {
+      expect(formatTargetLabel('PR #98', undefined)).toBe('PR #98');
+      expect(formatTargetLabel('PR #98', '')).toBe('PR #98');
+      expect(formatTargetLabel('Issue #42', '   ')).toBe('Issue #42');
+    });
+
+    it('replaces existing parenthesized snippet cleanly if already present', () => {
+      expect(
+        formatTargetLabel('PR #98 (old title)', 'feat(runner): new shiny title')
+      ).toBe('PR #98 (new shiny title)');
+    });
+
+    it('returns null gracefully on non-existent or failed target title query', async () => {
+      const title = await fetchTargetTitleAsync('/tmp/non-existent-repo-path', 'PR #999999');
+      expect(title).toBeNull();
     });
   });
 

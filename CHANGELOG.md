@@ -5,6 +5,14 @@ All notable changes to `jonah-fleet` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0](https://github.com/juliendurandeu/jonah-fleet/compare/v1.8.0...v1.9.0) (2026-09-10)
+
+
+### Features
+
+* **ci:** automate release pipeline with auto-merge and tag alignment ([#105](https://github.com/juliendurandeu/jonah-fleet/issues/105)) ([2e4d34b](https://github.com/juliendurandeu/jonah-fleet/commit/2e4d34bb35a4768372232112c455bb5df6849119))
+* **runner:** display truncated PR and issue titles in daemon spinner ([#107](https://github.com/juliendurandeu/jonah-fleet/issues/107)) ([9b2ca79](https://github.com/juliendurandeu/jonah-fleet/commit/9b2ca796ab37872ff056dad486c9faea80d6c1a0))
+
 ## [Unreleased] - 2026-09-10
 
 ### Features
